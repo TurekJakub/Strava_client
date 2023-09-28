@@ -17,7 +17,7 @@
     </a>
   </div>
 
-  <p>Click on the Tauri, Vite, and Svelte logos to learn more.</p>
+  <p class="font-bold text-red-400">Click on the Tauri, Vite, and Svelte logos to learn more.</p>
   <div class="row">
     <Menu />
   </div>

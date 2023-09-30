@@ -1,19 +1,25 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
+use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use scraper::{Html, Selector};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use strava_client::request_builder::RequestBuilder;
-use strava_client::strava_scraper::{Scraper, User};
+use strava_client::strava_scraper::{Date, Scraper, User};
 
 static SCRAPER: Lazy<Scraper> = Lazy::new(|| Scraper::new());
 
 #[tauri::command]
-fn get_menu_data() -> HashMap<String, HashMap<String, (bool, HashSet<String>)>> {
+fn get_menu_data() -> IndexMap<String, IndexMap<String, (bool, HashSet<String>)>> {
     SCRAPER.login();
     print!("test");
     SCRAPER.scraper_user_menu()
+}
+#[tauri::command]
+fn sort_menus_keys(keys: Vec<&str>) -> Vec<String> {
+    let mut keys_as_date: Vec<Date>  = keys.iter().map(|x| x.replace(".", "").split(" ").map(|s| s.to_owned()).collect()).map(|y: Vec<_>| Date { day:y[1].parse().unwrap(), month:y[2].parse().unwrap(), day_of_week:y[0].to_string() }).collect();
+    keys_as_date.sort();
+    keys_as_date.iter().map(|x| x.to_string()).collect()
 }
 pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
     let mut allergens = HashSet::new();
@@ -34,7 +40,7 @@ fn main() {
     let request_builder = RequestBuilder::new();
     request_builder.login(&user);
     let page = request_builder.get_user_menu(); // debug
-    let mut menu = HashMap::new();
+    let mut menu = IndexMap::new();
     let days_selector = Selector::parse(".objednavka").unwrap();
     let date_selector = Selector::parse(".den").unwrap();
     let dishes_name_selector = Selector::parse(".nazev").unwrap();
@@ -48,7 +54,7 @@ fn main() {
         let daily_menu_html = Html::parse_fragment(day.html().as_str());
         let dishes_of_day = daily_menu_html.select(&dishes_name_selector);
         let mut dishes_allergens = daily_menu_html.select(&allergens_selector);
-        let mut daily_menu = HashMap::new();
+        let mut daily_menu = IndexMap::new();
         let mut orders_state = daily_menu_html.select(&order_state_selector);
         let date = daily_menu_html
             .select(&date_selector)
@@ -76,9 +82,9 @@ fn main() {
         }
         menu.insert(date, daily_menu);
     }
-    // println!("{:?}", menu);
+    println!("{:?}", menu);
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_menu_data])
+        .invoke_handler(tauri::generate_handler![get_menu_data, sort_menus_keys])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

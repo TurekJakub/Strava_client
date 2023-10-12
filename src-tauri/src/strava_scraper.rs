@@ -82,8 +82,8 @@ impl Scraper {
     }
     pub fn login(&self) {
         let user = User {
-            username: "breburdak",
-            password: "breburdak",
+            username: "turekj",
+            password: "68AspiK20",
             cantine: "5763",
         };
         self.request_builder.login(&user);

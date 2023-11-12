@@ -52,8 +52,8 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
     }
     allergens
 }
-#[tokio::main]
-async fn main() ->Result<(), CmdError> {
+
+fn main() ->Result<(), CmdError> {
     let date = chrono::Local::now();
     let mut firefox = Command::new("firefox")
     .env("PATH", "./bin/firefox")
@@ -72,24 +72,8 @@ let c = ClientBuilder::native()
     .expect("failed to connect to WebDriver");
 c.goto("https://app.strava.cz/prihlasit-se?jidelna").await?;
 
-c.wait().for_element(Locator::Css(r#"button[id*="CybotCookiebotDialogBodyButtonDecline"]"#)).await?.click().await?;
-c.find(Locator::Css(r#"input[placeholder*="Heslo"]"#))
-    .await?
-    .send_keys("password")
-    .await?;
-c.find(Locator::Css(r#"input[placeholder*="Uživatel"]"#))
-    .await?
-    .send_keys("user")
-    .await?;
-c.find(Locator::Css(r#"input[placeholder*="Číslo"]"#))
-    .await?
-    .send_keys("5763")
-    .await?;
+let x = c.wait().for_element(Locator::Css(r#"button[id*="CybotCookiebotDialogBodyButtonDecline"]"#)).await?.click().await;
 
-c.find(Locator::Css(r#"button[type="submit"]"#))
-    .await?
-    .click()
-    .await?;
 
 /*
 let form = c.form(Locator::Css(r#"form"#)).await?;

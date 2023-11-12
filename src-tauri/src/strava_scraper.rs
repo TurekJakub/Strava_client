@@ -1,11 +1,16 @@
 use crate::request_builder::RequestBuilder;
-use scraper::{Html, Selector};
-use std::collections::{HashSet};
+use fantoccini::{error::CmdError, Client, ClientBuilder, Locator};
 use indexmap::IndexMap;
-use chrono::Datelike;
-use serde::{Serialize, Serializer};
+use scraper::{Html, Selector};
 use serde::ser::SerializeStruct;
-fn main(){
+use serde::{Serialize, Serializer};
+use std::time::Duration;
+use std::{
+    collections::HashSet,
+    process::{Child, Command},
+};
+use url::Url;
+fn main() {
     let scraper = Scraper::new();
     scraper.login();
     let menu = scraper.scraper_user_menu();
@@ -35,59 +40,108 @@ pub struct Dish<'a> {
     pub name: &'a str,
     pub allergens: Vec<&'a str>,
 }
-#[derive(Eq, Debug,Hash,Clone)]
-pub struct Date{
-    pub day:  i8,
+#[derive(Eq, Debug, Hash, Clone)]
+pub struct Date {
+    pub day: i8,
     pub month: i8,
-    pub day_of_week:String,
+    pub day_of_week: String,
 }
-impl PartialEq for Date{
+impl PartialEq for Date {
     fn eq(&self, other: &Self) -> bool {
-        self.day == other.day && self.month == other.month 
+        self.day == other.day && self.month == other.month
     }
 }
-impl PartialOrd for Date{
+impl PartialOrd for Date {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if self == other{
+        if self == other {
             return Some(std::cmp::Ordering::Equal);
         }
-        if self.month > other.month{
+        if self.month > other.month {
             return Some(std::cmp::Ordering::Greater);
         }
-        if self.month < other.month{
+        if self.month < other.month {
             return Some(std::cmp::Ordering::Less);
         }
         Some(self.day.cmp(&other.day))
     }
 }
-impl Ord for Date{
+impl Ord for Date {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap()
     }
-}   
+}
 impl Date {
-    pub fn to_string(&self) -> String{
-        format!("{} {}. {}.",self.day_of_week,self.day,self.month)
+    pub fn to_string(&self) -> String {
+        format!("{} {}. {}.", self.day_of_week, self.day, self.month)
     }
 }
-    
 
 pub struct Scraper {
-    request_builder: RequestBuilder,
+    client: Client,
+    gecko: Child,
+    firefox: Child,
 }
 impl Scraper {
-    pub fn new() -> Scraper {
+    pub async fn new() -> Scraper {
         Scraper {
-            request_builder: RequestBuilder::new(),
+            firefox: Command::new("firefox")
+                .env("PATH", "./bin/firefox")
+                .args(["--marionette", "--headless"])
+                .spawn()
+                .expect("failed to execute process"),
+            gecko: Command::new("geckodriver")
+                .env("PATH", "./bin")
+                .args(["--marionette-port", "2828", "--connect-existing"])
+                .spawn()
+                .expect("UwU"),
+            client: ClientBuilder::native()
+                .connect("http://localhost:4444")
+                .await
+                .expect("failed to connect to WebDriver"),
         }
     }
-    pub fn login(&self) {
-        let user = User {
-            username: "user",
-            password: "password",
-            cantine: "5763",
+    pub async fn login(&self, user: &User<'_>) {
+        let cookie_button = self
+            .client
+            .wait()
+            .at_most(Duration::from_millis(1000))
+            .for_element(Locator::Css(
+                r#"button[id*="CybotCookiebotDialogBodyButtonDecline"]"#,
+            ))
+            .await;
+        match cookie_button {
+            Ok(x) => x.click().await.unwrap(),
+            Err(_) => (),
         };
-        self.request_builder.login(&user);
+        self.client
+            .find(Locator::Css(r#"input[placeholder*="Heslo"]"#))
+            .await
+            .unwrap()
+            .send_keys(user.password)
+            .await
+            .unwrap();
+        self.client
+            .find(Locator::Css(r#"input[placeholder*="Uživatel"]"#))
+            .await
+            .unwrap()
+            .send_keys(user.username)
+            .await
+            .unwrap();
+        self.client
+            .find(Locator::Css(r#"input[placeholder*="Číslo"]"#))
+            .await
+            .unwrap()
+            .send_keys(user.cantine)
+            .await
+            .unwrap();
+
+        self.client
+            .find(Locator::Css(r#"button[type="submit"]"#))
+            .await
+            .unwrap()
+            .click()
+            .await
+            .unwrap();
     }
     // parse given html to menu represented by following structure HashMap<date: String, HashMap<dish_name: String, (is_ordered: bool, allergens: HashSet<String>)>>
     pub fn scraper_user_menu(&self) -> IndexMap<String, IndexMap<String, (bool, HashSet<String>)>> {
@@ -98,24 +152,24 @@ impl Scraper {
         let dishes_name_selector = Selector::parse(".nazev").unwrap();
         let allergens_selector = Selector::parse(".alergeny").unwrap();
         let order_state_selector = Selector::parse("input[autocomplete='off']").unwrap();
-    
+
         let days = page.select(&days_selector);
         // println!("{:?}", days);
-    
+
         for day in days {
             let daily_menu_html = Html::parse_fragment(day.html().as_str());
             let dishes_of_day = daily_menu_html.select(&dishes_name_selector);
             let mut dishes_allergens = daily_menu_html.select(&allergens_selector);
             let mut daily_menu = IndexMap::new();
             let mut orders_state = daily_menu_html.select(&order_state_selector);
-            let date  = daily_menu_html
+            let date = daily_menu_html
                 .select(&date_selector)
                 .next()
                 .unwrap()
                 .value()
                 .attr("title")
                 .unwrap()
-                .to_string();           
+                .to_string();
             for dish in dishes_of_day {
                 let allergens_element = dishes_allergens.next();
                 let dish_description = match allergens_element {
@@ -127,7 +181,8 @@ impl Scraper {
                 daily_menu.insert(
                     dish.inner_html(),
                     (
-                        orders_state.next().unwrap().value().attr("value").unwrap() != "nezaskrtnuto",
+                        orders_state.next().unwrap().value().attr("value").unwrap()
+                            != "nezaskrtnuto",
                         allergens,
                     ),
                 );

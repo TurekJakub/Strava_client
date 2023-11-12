@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::strava_scraper::User;
+use indexmap::IndexMap;
 use reqwest::{blocking::Client, blocking::Response, Error};
 use scraper::Html;
 pub struct RequestBuilder {
@@ -10,14 +11,16 @@ impl RequestBuilder {
     // authenticate user and return response content as string
     pub fn login(&self, user: &User) -> Result<Response,Error> {
         let params = [
-            ("zarizeni", user.cantine),
-            ("uzivatel", user.username),
+            ("cislo", user.cantine),
+            ("jmeno", user.username),
             ("heslo", user.password),
+            ("lang", "CZ"),
+            ("zustatPrihlasen", "false"),
         ];
 
         let res = self
             .client
-            .post("https://www.strava.cz/strava/")
+            .post("https://app.strava.cz/api/login")
             .form(&params)
             .send();
             
@@ -38,7 +41,7 @@ impl RequestBuilder {
     }
     // do get request for loqged users menu page and return it
     pub fn get_user_menu(&self) -> Html {
-        self.do_get("https://www.strava.cz/Strava5/Objednavky")
+        self.do_get("https://app.strava.cz/")
     }
     pub fn do_get(&self, url: &str) -> Html {
         let res = self.client.get(url).send();
@@ -48,9 +51,11 @@ impl RequestBuilder {
         let res = self.client.get(url).send();
         res
     }
-    pub fn do_post(&self, url: &str, params: &HashMap<&str,&str>) -> Result<Response,Error> {
-        let res = self.client.post(url).json(params).header("content-type", "application/json").send();   
-        res     
+    pub fn do_post(&self, url: &str, params: &IndexMap<&str,&str>) -> Result<Response,Error> {
+        let res = self.client.post(url).body(r#"{"cislo":"5763","jmeno":"user","heslo":"password","zustatPrihlasen":false,"lang":"CZ"}"#);
+        //println!("{:?}",res);
+       res.send()
+ 
     }
     pub fn do_post2(&self, url: &str) -> Result<Response,Error> {
         let res = self.client.post(url).send();   

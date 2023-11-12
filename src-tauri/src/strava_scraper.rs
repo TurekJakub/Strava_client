@@ -2,6 +2,7 @@ use crate::request_builder::RequestBuilder;
 use scraper::{Html, Selector};
 use std::collections::{HashSet};
 use indexmap::IndexMap;
+use chrono::Datelike;
 use serde::{Serialize, Serializer};
 use serde::ser::SerializeStruct;
 fn main(){
@@ -82,8 +83,8 @@ impl Scraper {
     }
     pub fn login(&self) {
         let user = User {
-            username: "turekj",
-            password: "68AspiK20",
+            username: "user",
+            password: "password",
             cantine: "5763",
         };
         self.request_builder.login(&user);

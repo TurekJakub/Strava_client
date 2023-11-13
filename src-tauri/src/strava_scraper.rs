@@ -10,12 +10,7 @@ use std::{
     process::{Child, Command},
 };
 use url::Url;
-fn main() {
-    let scraper = Scraper::new();
-    scraper.login();
-    let menu = scraper.scraper_user_menu();
-    println!("{:?}", menu);
-}
+fn main() {}
 /*
 fn main() {
     let request = RequestBuilder::new();
@@ -101,6 +96,7 @@ impl Scraper {
         }
     }
     pub async fn login(&self, user: &User<'_>) {
+        self.client.goto("https://app.strava.cz/").await.unwrap();
         let cookie_button = self
             .client
             .wait()
@@ -144,13 +140,15 @@ impl Scraper {
             .unwrap();
     }
     // parse given html to menu represented by following structure HashMap<date: String, HashMap<dish_name: String, (is_ordered: bool, allergens: HashSet<String>)>>
-    pub fn scraper_user_menu(&self) -> IndexMap<String, IndexMap<String, (bool, HashSet<String>)>> {
-        let page = self.request_builder.get_user_menu(); // debug
+    pub async fn scraper_user_menu(
+        &self,
+    ) -> IndexMap<String, IndexMap<String, (bool, HashSet<String>)>> {
+        let page = self.get_menu_page().await;
         let mut menu = IndexMap::new();
-        let days_selector = Selector::parse(".objednavka").unwrap();
-        let date_selector = Selector::parse(".den").unwrap();
-        let dishes_name_selector = Selector::parse(".nazev").unwrap();
-        let allergens_selector = Selector::parse(".alergeny").unwrap();
+        let days_selector = Selector::parse(r#"div[id*='2023']"#).unwrap();
+        let date_selector = Selector::parse("h2").unwrap();
+        let dishes_name_selector = Selector::parse("span >span").unwrap();
+        let allergens_selector = Selector::parse("button > span").unwrap();
         let order_state_selector = Selector::parse("input[autocomplete='off']").unwrap();
 
         let days = page.select(&days_selector);
@@ -198,6 +196,14 @@ impl Scraper {
         menu2.insert("test".to_string(), me);
         menu2*/
         menu
+    }
+    async fn get_menu_page(&self) -> Html {
+        self.client
+            .wait()
+            .for_url(Url::parse("https://app.strava.cz/").unwrap())
+            .await
+            .unwrap();
+        Html::parse_document(self.client.source().await.unwrap().as_str())
     }
     // extract and return list of allergens from given dish description
     pub fn get_allergens(&self, dish_descriptin: String) -> HashSet<String> {

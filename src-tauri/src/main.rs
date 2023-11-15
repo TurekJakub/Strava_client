@@ -62,10 +62,17 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
     }
     allergens
 }
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let date = chrono::Local::now();
-
+    let s = Scraper::new().await;
+    let user = User {
+        username: "turekj",
+        password: "68AspiK20",
+        cantine: "5763",
+    };
+    s.login(&user).await;
+    s.scraper_user_menu().await;
     /*
     let form = c.form(Locator::Css(r#"form"#)).await?;
     let w =x.set(Locator::Css(r#"input[placeholder*="Heslo"]"#), "password")
@@ -171,9 +178,11 @@ fn main() {
        //xx.unwrap().cookies().for_each(|x| println!("{:?}", x));
     */
     // let u = c.close().await;
+    /*
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![get_menu_data, sort_menus_keys])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+    */
     
 }

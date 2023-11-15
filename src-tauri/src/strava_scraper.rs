@@ -9,21 +9,22 @@ use std::{
     collections::HashSet,
     process::{Child, Command},
 };
+use tokio;
 use url::Url;
-fn main() {}
-/*
-fn main() {
-    let request = RequestBuilder::new();
+//fn main() {}
+#[tokio::main]
+async fn main() {
+    let s = Scraper::new().await;
     let user = User {
-        username: "test",
-        password: "test123",
-        cantine: "0000",
+        username: "turekj",
+        password: "68AspiK20",
+        cantine: "5763",
     };
-    request.login(&user);
-    let page = request.test();
-    scraper_user_menu(page);
+    s.login(&user).await;
+    s.scraper_user_menu().await;
+
 }
-*/
+
 // structure representing user
 pub struct User<'a> {
     pub username: &'a str,
@@ -146,10 +147,10 @@ impl Scraper {
         let page = self.get_menu_page().await;
         let mut menu = IndexMap::new();
         let days_selector = Selector::parse(r#"div[id*='2023']"#).unwrap();
-        let date_selector = Selector::parse("h2").unwrap();
+        let date_selector = Selector::parse("h2 > label").unwrap();
         let dishes_name_selector = Selector::parse("span >span").unwrap();
         let allergens_selector = Selector::parse("button > span").unwrap();
-        let order_state_selector = Selector::parse("input[autocomplete='off']").unwrap();
+        let order_state_selector = Selector::parse("button > svg").unwrap();
 
         let days = page.select(&days_selector);
         // println!("{:?}", days);
@@ -159,15 +160,12 @@ impl Scraper {
             let dishes_of_day = daily_menu_html.select(&dishes_name_selector);
             let mut dishes_allergens = daily_menu_html.select(&allergens_selector);
             let mut daily_menu = IndexMap::new();
-            let mut orders_state = daily_menu_html.select(&order_state_selector);
             let date = daily_menu_html
                 .select(&date_selector)
                 .next()
                 .unwrap()
-                .value()
-                .attr("title")
-                .unwrap()
-                .to_string();
+                .inner_html();
+            println!("{}",date);
             for dish in dishes_of_day {
                 let allergens_element = dishes_allergens.next();
                 let dish_description = match allergens_element {
@@ -175,18 +173,23 @@ impl Scraper {
                     _ => continue,
                 };
                 let allergens = self.get_allergens(dish_description.inner_html());
-                // print!(" Allergens: {:?} ", allergens);
+                let ordered =  match dish.select(&order_state_selector).next()   {
+                    Some(_) => true,
+                    None => false,
+                    
+                };
                 daily_menu.insert(
                     dish.inner_html(),
                     (
-                        orders_state.next().unwrap().value().attr("value").unwrap()
-                            != "nezaskrtnuto",
+                        ordered,
                         allergens,
                     ),
                 );
             }
             menu.insert(date.clone(), daily_menu);
+            println!("{:?}", menu);
         }
+
         /*
         let mut menu2 = HashMap::new();
         let mut me = HashMap::new();

@@ -3,7 +3,6 @@
 use cached::{Cached, UnboundCache};
 use chrono::Datelike;
 use fantoccini::{error::CmdError, ClientBuilder, Locator};
-use headless_chrome::Browser;
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use reqwest::cookie::Cookie;
@@ -21,10 +20,10 @@ static SCRAPER: OnceCell<Scraper> = OnceCell::const_new();
 
 
 static mut CACHE: Lazy<
-    UnboundCache<String, IndexMap<String, IndexMap<String, (bool, HashSet<String>)>>>,
+    UnboundCache<String, IndexMap<String, IndexMap<String, (bool, Vec<String>)>>>,
 > = Lazy::new(|| UnboundCache::new());
 #[tauri::command]
-async fn get_menu_data() -> IndexMap<String, IndexMap<String, (bool, HashSet<String>)>> {
+async fn get_menu_data() -> IndexMap<String, IndexMap<String, (bool, Vec<String>)>> {
     let u = User {
         username: "turekj",
         password: "68AspiK20",

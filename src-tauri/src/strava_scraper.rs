@@ -143,21 +143,23 @@ impl Scraper {
     // parse given html to menu represented by following structure HashMap<date: String, HashMap<dish_name: String, (is_ordered: bool, allergens: HashSet<String>)>>
     pub async fn scraper_user_menu(
         &self,
-    ) -> IndexMap<String, IndexMap<String, (bool, HashSet<String>)>> {
+    ) -> IndexMap<String, IndexMap<String, (bool, Vec<String>)>> {
+        println!("{}", "UwU");
         let page = self.get_menu_page().await;
         let mut menu = IndexMap::new();
         let days_selector = Selector::parse(r#"div[id*='2023']"#).unwrap();
         let date_selector = Selector::parse("h2 > label").unwrap();
-        let dishes_name_selector = Selector::parse("span >span").unwrap();
+        let dishes_selector = Selector::parse(".InputHolder").unwrap();
+        let dishes_name_selector = Selector::parse("span >span>span").unwrap();
         let allergens_selector = Selector::parse("button > span").unwrap();
-        let order_state_selector = Selector::parse("button > svg").unwrap();
+        let order_state_selector = Selector::parse(r#"button[id*='table'] > svg"#).unwrap();
 
         let days = page.select(&days_selector);
         // println!("{:?}", days);
 
         for day in days {
             let daily_menu_html = Html::parse_fragment(day.html().as_str());
-            let dishes_of_day = daily_menu_html.select(&dishes_name_selector);
+            let dishes_of_day = daily_menu_html.select(&dishes_selector);
             let mut dishes_allergens = daily_menu_html.select(&allergens_selector);
             let mut daily_menu = IndexMap::new();
             let date = daily_menu_html
@@ -166,29 +168,29 @@ impl Scraper {
                 .unwrap()
                 .inner_html();
             println!("{}",date);
-            for dish in dishes_of_day {
-                let allergens_element = dishes_allergens.next();
-                let dish_description = match allergens_element {
-                    Some(x) => x,
-                    _ => continue,
-                };
-                let allergens = self.get_allergens(dish_description.inner_html());
+            for dish in dishes_of_day {               
+                let mut allergens = Vec::new();
+                dish.select(&allergens_selector).into_iter().map(|a| a.inner_html()).filter(|a| a != "").for_each(|a| allergens.push(a));
                 let ordered =  match dish.select(&order_state_selector).next()   {
                     Some(_) => true,
-                    None => false,
+                    _ => false,
                     
                 };
                 daily_menu.insert(
                     dish.inner_html(),
                     (
                         ordered,
-                        allergens,
+                        allergens.clone(),
                     ),
                 );
+                let x =allergens.into_iter().collect::<String>();
+                println!("{:?}", dish.select(&dishes_name_selector).into_iter().for_each(|x| print!("{:?}", x.inner_html())));
+                println!("{}", ordered);
+                println!("{}", x);
             }
-            menu.insert(date.clone(), daily_menu);
-            println!("{:?}", menu);
-        }
+            menu.insert(date, daily_menu);
+            println!("{:}", "UwU");
+        } 
 
         /*
         let mut menu2 = HashMap::new();

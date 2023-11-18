@@ -1,16 +1,16 @@
-use crate::request_builder::RequestBuilder;
-use fantoccini::{error::CmdError, Client, ClientBuilder, Locator};
+use chrono::Datelike;
+use fantoccini::{Client, ClientBuilder, Locator};
 use indexmap::IndexMap;
 use scraper::{Html, Selector};
-use serde::ser::SerializeStruct;
-use serde::{Serialize, Serializer};
+use serde::{Serialize, Serializer,ser::SerializeStruct};
+use tokio;
+use url::Url;
 use std::time::Duration;
 use std::{
     collections::HashSet,
     process::{Child, Command},
 };
-use tokio;
-use url::Url;
+
 //fn main() {}
 #[tokio::main]
 async fn main() {
@@ -19,10 +19,11 @@ async fn main() {
         username: "turekj",
         password: "68AspiK20",
         cantine: "5763",
+        lang: "cs",
+        stay_logged: true,
     };
     s.login(&user).await;
     s.scraper_user_menu().await;
-
 }
 
 // structure representing user
@@ -30,6 +31,23 @@ pub struct User<'a> {
     pub username: &'a str,
     pub password: &'a str,
     pub cantine: &'a str,
+    pub lang: &'a str,
+    pub stay_logged: bool,
+}
+impl Serialize for User<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("User", 5)?;
+        s.serialize_field("heslo", &self.password)?;
+        s.serialize_field("jmeno", &self.username)?;
+        s.serialize_field("cislo", &self.cantine)?;
+        s.serialize_field("lang", &self.lang)?;
+        s.serialize_field("zustatPrihlasen", &self.stay_logged.to_string())?;
+        s.end()
+
+    }
 }
 // structure representing dish
 pub struct Dish<'a> {
@@ -144,62 +162,59 @@ impl Scraper {
     pub async fn scraper_user_menu(
         &self,
     ) -> IndexMap<String, IndexMap<String, (bool, Vec<String>)>> {
-        println!("{}", "UwU");
         let page = self.get_menu_page().await;
+        let now = chrono::Local::now();
         let mut menu = IndexMap::new();
-        let days_selector = Selector::parse(r#"div[id*='2023']"#).unwrap();
+        let day_selector = Selector::parse(format!(r#"div[id*='{}']"#, now.year()).as_str()).unwrap();
+        let day_selector_next_year = Selector::parse(format!(r#"div[id*='{}']"#, now.year() + 1).as_str()).unwrap();
+        let x = page.select(&day_selector);     
+        let xx =page.select(&day_selector_next_year);      
+        let days = x.chain(xx);
         let date_selector = Selector::parse("h2 > label").unwrap();
         let dishes_selector = Selector::parse(".InputHolder").unwrap();
         let dishes_name_selector = Selector::parse("span >span>span").unwrap();
         let allergens_selector = Selector::parse("button > span").unwrap();
         let order_state_selector = Selector::parse(r#"button[id*='table'] > svg"#).unwrap();
 
-        let days = page.select(&days_selector);
-        // println!("{:?}", days);
-
         for day in days {
             let daily_menu_html = Html::parse_fragment(day.html().as_str());
             let dishes_of_day = daily_menu_html.select(&dishes_selector);
-            let mut dishes_allergens = daily_menu_html.select(&allergens_selector);
             let mut daily_menu = IndexMap::new();
             let date = daily_menu_html
                 .select(&date_selector)
                 .next()
                 .unwrap()
                 .inner_html();
-            println!("{}",date);
-            for dish in dishes_of_day {               
+            for dish in dishes_of_day {
                 let mut allergens = Vec::new();
-                dish.select(&allergens_selector).into_iter().map(|a| a.inner_html()).filter(|a| a != "").for_each(|a| allergens.push(a));
-                let ordered =  match dish.select(&order_state_selector).next()   {
+                dish.select(&allergens_selector)
+                    .into_iter()
+                    .map(|a| a.inner_html())
+                    .filter(|a| a != "")
+                    .for_each(|a| allergens.push(a));
+                let ordered = match dish.select(&order_state_selector).next() {
                     Some(_) => true,
                     _ => false,
-                    
                 };
                 daily_menu.insert(
-                    dish.inner_html(),
-                    (
-                        ordered,
-                        allergens.clone(),
-                    ),
+                    dish.select(&dishes_name_selector)
+                        .into_iter()
+                        .map(|a| a.inner_html())
+                        .collect::<Vec<String>>()
+                        .into_iter()
+                        .collect::<String>(),
+                    (ordered, allergens),
                 );
+                /* output test
                 let x =allergens.into_iter().collect::<String>();
-                println!("{:?}", dish.select(&dishes_name_selector).into_iter().for_each(|x| print!("{:?}", x.inner_html())));
+                println!("{:?}", dish.select(&dishes_name_selector).into_iter().map(|a| a.inner_html()).collect::<Vec<String>>().into_iter().collect::<String>());
                 println!("{}", ordered);
-                println!("{}", x);
+                println!("{}", x);¨
+                */
             }
             menu.insert(date, daily_menu);
-            println!("{:}", "UwU");
-        } 
-
-        /*
-        let mut menu2 = HashMap::new();
-        let mut me = HashMap::new();
-        let mut x = HashSet::new();
-        x.insert("test".to_string());
-        me.insert("test".to_string(), (true, x));
-        menu2.insert("test".to_string(), me);
-        menu2*/
+        }
+        println!("{:?}", menu);
         menu
     }
     async fn get_menu_page(&self) -> Html {

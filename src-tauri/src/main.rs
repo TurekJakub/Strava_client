@@ -7,11 +7,12 @@ use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use reqwest::cookie::Cookie;
 use scraper::{Html, Selector};
+use tauri::utils::consume_unused_variable;
 use std::{
     collections::{HashMap, HashSet},
     process::Command,
 };
-use strava_client::request_builder::RequestBuilder;
+use strava_client::request_builder::{RequestBuilder, self};
 use strava_client::strava_scraper::{Date, Scraper, User};
 use url::Url;
 use tokio::sync::OnceCell;
@@ -28,6 +29,8 @@ async fn get_menu_data() -> IndexMap<String, IndexMap<String, (bool, Vec<String>
         username: "turekj",
         password: "68AspiK20",
         cantine: "5763",
+        lang: "CZ",
+        stay_logged: false,
     };
     SCRAPER.get_or_init(||Scraper::new()).await.login(&u).await;
     print!("  test");
@@ -61,17 +64,27 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
     }
     allergens
 }
-#[tokio::main]
-async fn main() {
+//#[tokio::main]
+ fn main() {
     let date = chrono::Local::now();
-    let s = Scraper::new().await;
+    
+    //let s = Scraper::new().await;
     let user = User {
         username: "turekj",
         password: "68AspiK20",
         cantine: "5763",
+        lang: "CZ",
+        stay_logged: false,
     };
-    s.login(&user).await;
-    s.scraper_user_menu().await;
+    println!("{}", serde_json::to_string(&user).unwrap());
+    let b = RequestBuilder::new();
+    let x = b.login(&user).unwrap();
+    let y = x.text().unwrap();
+    let z = serde_json::from_str::<serde_json::Value>(&y).unwrap();
+    println!("{:?}", z.get("sid").unwrap().as_str().unwrap());
+
+    //s.login(&user).await;
+    //s.scraper_user_menu().await;
     /*
     let form = c.form(Locator::Css(r#"form"#)).await?;
     let w =x.set(Locator::Css(r#"input[placeholder*="Heslo"]"#), "password")

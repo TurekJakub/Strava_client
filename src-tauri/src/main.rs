@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use cached::{Cached, UnboundCache};
 use chrono::Datelike;
-use fantoccini::{error::CmdError, ClientBuilder, Locator};
+use fantoccini::{error::CmdError, ClientBuilder, Locator, key};
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use reqwest::cookie::Cookie;
@@ -79,10 +79,18 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
     println!("{}", serde_json::to_string(&user).unwrap());
     let b = RequestBuilder::new();
     let x = b.login(&user).unwrap();
-    let y = x.text().unwrap();
-    let z = serde_json::from_str::<serde_json::Value>(&y).unwrap();
-    println!("{:?}", z.get("sid").unwrap().as_str().unwrap());
-
+    let mut z = b.get_user_menu();
+    let y = z.as_object_mut().unwrap();
+   /*
+    for key in  y.keys() {
+        println!("{}", y.get(key).unwrap().get("datum").unwrap());
+    }
+    */
+    
+   // let y = x.text().unwrap();
+    //let z = serde_json::from_str::<serde_json::Value>(&y).unwrap();
+    println!("{:?}", z);
+  
     //s.login(&user).await;
     //s.scraper_user_menu().await;
     /*
@@ -190,11 +198,11 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
        //xx.unwrap().cookies().for_each(|x| println!("{:?}", x));
     */
     // let u = c.close().await;
-    /*
+    
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![get_menu_data, sort_menus_keys])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-    */
+    
     
 }

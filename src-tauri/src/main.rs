@@ -26,8 +26,8 @@ static mut CACHE: Lazy<
 #[tauri::command]
 async fn get_menu_data() -> IndexMap<String, IndexMap<String, (bool, Vec<String>)>> {
     let u = User {
-        username: "turekj",
-        password: "68AspiK20",
+        username: "",
+        password: "",
         cantine: "5763",
         lang: "CZ",
         stay_logged: false,

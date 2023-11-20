@@ -80,7 +80,7 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
     let b = RequestBuilder::new();
     let x = b.login(&user).unwrap();
     let mut z = b.get_user_menu();
-    let y = z.as_object_mut().unwrap();
+   
    /*
     for key in  y.keys() {
         println!("{}", y.get(key).unwrap().get("datum").unwrap());

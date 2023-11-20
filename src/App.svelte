@@ -3,7 +3,7 @@
 </script>
 
 <main class="container">
-  <h1>Welcome to Tauri!</h1>
+  <h1 class="text-orange-700">Welcome to Tauri!</h1>
 
   <div class="row">
     <a href="https://vitejs.dev" target="_blank">

@@ -2,27 +2,39 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use cached::{Cached, UnboundCache};
 use chrono::Datelike;
-use headless_chrome::Browser;
+use fantoccini::{error::CmdError, ClientBuilder, Locator, key};
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use reqwest::cookie::Cookie;
 use scraper::{Html, Selector};
-use strava_client::request_builder::RequestBuilder;
-use std::{collections::{HashMap, HashSet}, process::Command};
+use tauri::utils::consume_unused_variable;
+use std::{
+    collections::{HashMap, HashSet},
+    process::Command,
+};
+use strava_client::request_builder::{RequestBuilder, self};
 use strava_client::strava_scraper::{Date, Scraper, User};
-use fantoccini::{ClientBuilder, Locator, error::CmdError};
 use url::Url;
+use tokio::sync::OnceCell;
 
-static SCRAPER: Lazy<Scraper> = Lazy::new(|| Scraper::new());
+static SCRAPER: OnceCell<Scraper> = OnceCell::const_new();
+
 
 static mut CACHE: Lazy<
-    UnboundCache<String, IndexMap<String, IndexMap<String, (bool, HashSet<String>)>>>,
+    UnboundCache<String, IndexMap<String, IndexMap<String, (bool, Vec<String>)>>>,
 > = Lazy::new(|| UnboundCache::new());
 #[tauri::command]
-fn get_menu_data() -> IndexMap<String, IndexMap<String, (bool, HashSet<String>)>> {
-    SCRAPER.login();
-    print!("test");
-    let menu = SCRAPER.scraper_user_menu();
+async fn get_menu_data() -> IndexMap<String, IndexMap<String, (bool, Vec<String>)>> {
+    let u = User {
+        username: "",
+        password: "",
+        cantine: "5763",
+        lang: "CZ",
+        stay_logged: false,
+    };
+    SCRAPER.get_or_init(||Scraper::new()).await.login(&u).await;
+    print!("  test");
+    let menu = SCRAPER.get_or_init(||Scraper::new()).await.scraper_user_menu().await;
     unsafe {
         CACHE.cache_set("menu".to_owned(), menu.clone());
     }
@@ -52,61 +64,53 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
     }
     allergens
 }
-
-fn main() ->Result<(), CmdError> {
+//#[tokio::main]
+ fn main() {
     let date = chrono::Local::now();
-    let mut firefox = Command::new("firefox")
-    .env("PATH", "./bin/firefox")
-    .args(["--marionette", "--headless"])
-    .spawn()
-    .expect("failed to execute process");
-let mut gecko = Command::new("geckodriver")
-    .env("PATH", "./bin")
-    .args(["--marionette-port", "2828", "--connect-existing"])
-    .spawn()
-    .expect("UwU");
-
-let c = ClientBuilder::native()
-    .connect("http://localhost:4444")
-    .await
-    .expect("failed to connect to WebDriver");
-c.goto("https://app.strava.cz/prihlasit-se?jidelna").await?;
-
-let x = c.wait().for_element(Locator::Css(r#"button[id*="CybotCookiebotDialogBodyButtonDecline"]"#)).await?.click().await;
-
-
-/*
-let form = c.form(Locator::Css(r#"form"#)).await?;
-let w =x.set(Locator::Css(r#"input[placeholder*="Heslo"]"#), "password")
-    .await?
-    .set(Locator::Css(r#"input[placeholder*="Uživatel"]"#), "user")
-    .await?
-    .set(Locator::Css(r#"input[placeholder*="Číslo"]"#), "5763")
-    .await?
-    .submit_with(Locator::Css(r#"button[type="submit"]"#))
-    .await?;
-*/
-c.wait().for_url(Url::parse("https://app.strava.cz/").unwrap()).await?;
-// c.wait().for_element(Locator::Css(r#"div[id*="Day""#)).await?;
-
-let z = c.source().await?;
-//println!("{}",z);
-
-let url = c.current_url().await?;
-println!("{}", url);
-
-gecko.kill().expect("!kill");
-firefox.kill().expect("!kill");
-   
     
-
-
-
+    //let s = Scraper::new().await;
+    let user = User {
+        username: "turekj",
+        password: "",
+        cantine: "",
+        lang: "CZ",
+        stay_logged: false,
+    };
+    println!("{}", serde_json::to_string(&user).unwrap());
+    let b = RequestBuilder::new();
+    let x = b.login(&user).unwrap();
+    let mut z = b.get_user_menu();
+    let y = z.as_object_mut().unwrap();
+   /*
+    for key in  y.keys() {
+        println!("{}", y.get(key).unwrap().get("datum").unwrap());
+    }
+    */
+    
+   // let y = x.text().unwrap();
+    //let z = serde_json::from_str::<serde_json::Value>(&y).unwrap();
+    println!("{:?}", z);
   
+    //s.login(&user).await;
+    //s.scraper_user_menu().await;
+    /*
+    let form = c.form(Locator::Css(r#"form"#)).await?;
+    let w =x.set(Locator::Css(r#"input[placeholder*="Heslo"]"#), "password")
+        .await?
+        .set(Locator::Css(r#"input[placeholder*="Uživatel"]"#), "user")
+        .await?
+        .set(Locator::Css(r#"input[placeholder*="Číslo"]"#), "5763")
+        .await?
+        .submit_with(Locator::Css(r#"button[type="submit"]"#))
+        .await?;
+    */
+    // c.wait().for_element(Locator::Css(r#"div[id*="Day""#)).await?;
 
-   
+    //println!("{}",z);
 
-    
+    //gecko.kill().expect("!kill");
+    //firefox.kill().expect("!kill");
+
     /* login using api
     let user = User {
         username: "user",
@@ -116,7 +120,7 @@ firefox.kill().expect("!kill");
     let request_builder = RequestBuilder::new();
     let xx = request_builder.test_do_get("https://app.strava.cz/prihlasit-se?jidelna");
 
-    let t = request_builder.login(&user);  
+    let t = request_builder.login(&user);
     let mut userr: IndexMap<&str, &str> = IndexMap::new();
 
     userr.insert("cislo", "5763");
@@ -130,7 +134,7 @@ firefox.kill().expect("!kill");
     ",
         &userr,
     );
-    */
+
     let page = Html::parse_document(&z); // debug
                                                 // println!("{:?}",page.html());
                                                 // let mut menu = IndexMap::new();
@@ -145,7 +149,7 @@ firefox.kill().expect("!kill");
     //println!("{}",c.unwrap().html());
 
     //days.for_each(|x| println!("{:?}", x));
-
+    */
     /*
        for day in days {
            let daily_menu_html = Html::parse_fragment(day.html().as_str());
@@ -193,10 +197,12 @@ firefox.kill().expect("!kill");
        //   println!("{:?}", y.unwrap());
        //xx.unwrap().cookies().for_each(|x| println!("{:?}", x));
     */
-    let u = c.close().await;
+    // let u = c.close().await;
+    
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![get_menu_data, sort_menus_keys])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-   u
+    
+    
 }

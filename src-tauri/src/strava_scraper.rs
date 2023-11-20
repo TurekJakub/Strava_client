@@ -16,8 +16,8 @@ use std::{
 async fn main() {
     let s = Scraper::new().await;
     let user = User {
-        username: "turekj",
-        password: "68AspiK20",
+        username: "",
+        password: "",
         cantine: "5763",
         lang: "cs",
         stay_logged: true,

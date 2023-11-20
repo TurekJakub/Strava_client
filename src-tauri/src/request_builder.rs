@@ -54,7 +54,7 @@ impl RequestBuilder {
         )
     }
     // do get request for loqged users menu page and return it
-    pub fn get_user_menu(&self) -> Value {
+    pub fn get_user_menu(&self) -> Result<Value,Error> {
         let request_args = format!(
             r#""sid":"{}","s5url":"{}","cislo":"{}","konto":"0","podminka":"","resetTables":"true""#,
             self.sid.get().unwrap(),

@@ -76,11 +76,11 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
         lang: "CZ",
         stay_logged: false,
     };
-    println!("{}", serde_json::to_string(&user).unwrap());
+   // println!("{}", serde_json::to_string(&user).unwrap());
     let b = RequestBuilder::new();
     let x = b.login(&user).unwrap();
-    let mut z = b.get_user_menu();
-   
+    let mut menu = b.get_user_menu().unwrap();
+    let dish_number = menu.keys().into_iter().map(|k| menu.get(k).unwrap().keys()).flatten().position(|x| x =="Veget - Tofu tokáň, rýže,salát").unwrap();
    /*
     for key in  y.keys() {
         println!("{}", y.get(key).unwrap().get("datum").unwrap());
@@ -89,7 +89,7 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
     
    // let y = x.text().unwrap();
     //let z = serde_json::from_str::<serde_json::Value>(&y).unwrap();
-    println!("{:?}", z);
+    println!("{:?}", dish_number);
   
     //s.login(&user).await;
     //s.scraper_user_menu().await;
@@ -196,7 +196,7 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
        //   println!();
        //   println!("{:?}", y.unwrap());
        //xx.unwrap().cookies().for_each(|x| println!("{:?}", x));
-    */
+
     // let u = c.close().await;
     
     tauri::Builder::default()
@@ -204,5 +204,5 @@ pub fn get_allergens(dish_descriptin: String) -> HashSet<String> {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
     
-    
+    */
 }

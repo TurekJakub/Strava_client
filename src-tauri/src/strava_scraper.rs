@@ -2,14 +2,16 @@ use chrono::Datelike;
 use fantoccini::{Client, ClientBuilder, Locator};
 use indexmap::IndexMap;
 use scraper::{Html, Selector};
-use serde::{Serialize, Serializer,ser::SerializeStruct};
-use tokio;
-use url::Url;
+use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::time::Duration;
 use std::{
     collections::HashSet,
     process::{Child, Command},
 };
+use tokio;
+use url::Url;
+
+use crate::request_builder::RequestBuilder;
 
 //fn main() {}
 #[tokio::main]
@@ -23,7 +25,7 @@ async fn main() {
         stay_logged: true,
     };
     s.login(&user).await;
-    s.scraper_user_menu().await;
+    //  s.scraper_user_menu().await;
 }
 
 // structure representing user
@@ -46,7 +48,6 @@ impl Serialize for User<'_> {
         s.serialize_field("lang", &self.lang)?;
         s.serialize_field("zustatPrihlasen", &self.stay_logged.to_string())?;
         s.end()
-
     }
 }
 // structure representing dish
@@ -161,14 +162,18 @@ impl Scraper {
     // parse given html to menu represented by following structure HashMap<date: String, HashMap<dish_name: String, (is_ordered: bool, allergens: HashSet<String>)>>
     pub async fn scraper_user_menu(
         &self,
-    ) -> IndexMap<String, IndexMap<String, (bool, Vec<String>)>> {
+        request_builder: &RequestBuilder,
+    ) -> Result<IndexMap<String, IndexMap<String, (bool, String, Vec<String>)>>, String> {
+        let api_data = request_builder.get_user_menu()?;
         let page = self.get_menu_page().await;
         let now = chrono::Local::now();
         let mut menu = IndexMap::new();
-        let day_selector = Selector::parse(format!(r#"div[id*='{}']"#, now.year()).as_str()).unwrap();
-        let day_selector_next_year = Selector::parse(format!(r#"div[id*='{}']"#, now.year() + 1).as_str()).unwrap();
-        let x = page.select(&day_selector);     
-        let xx =page.select(&day_selector_next_year);      
+        let day_selector =
+            Selector::parse(format!(r#"div[id*='{}']"#, now.year()).as_str()).unwrap();
+        let day_selector_next_year =
+            Selector::parse(format!(r#"div[id*='{}']"#, now.year() + 1).as_str()).unwrap();
+        let x = page.select(&day_selector);
+        let xx = page.select(&day_selector_next_year);
         let days = x.chain(xx);
         let date_selector = Selector::parse("h2 > label").unwrap();
         let dishes_selector = Selector::parse(".InputHolder").unwrap();
@@ -196,14 +201,21 @@ impl Scraper {
                     Some(_) => true,
                     _ => false,
                 };
+                let dish_name = dish
+                    .select(&dishes_name_selector)
+                    .into_iter()
+                    .map(|a| a.inner_html())
+                    .collect::<Vec<String>>()
+                    .into_iter()
+                    .collect::<String>();
+
                 daily_menu.insert(
-                    dish.select(&dishes_name_selector)
-                        .into_iter()
-                        .map(|a| a.inner_html())
-                        .collect::<Vec<String>>()
-                        .into_iter()
-                        .collect::<String>(),
-                    (ordered, allergens),
+                    dish_name.clone(),
+                    (
+                        ordered,
+                        api_data.get(&date).unwrap().get(&dish_name).unwrap().1.to_owned(),
+                        allergens,
+                    ),
                 );
                 /* output test
                 let x =allergens.into_iter().collect::<String>();
@@ -214,8 +226,7 @@ impl Scraper {
             }
             menu.insert(date, daily_menu);
         }
-        println!("{:?}", menu);
-        menu
+        Ok(menu)
     }
     async fn get_menu_page(&self) -> Html {
         self.client
@@ -235,5 +246,10 @@ impl Scraper {
             }
         }
         allergens
+    }
+    pub async fn close(mut self) {
+        self.client.close().await.unwrap();
+        self.gecko.kill().unwrap();
+        self.firefox.kill().unwrap();
     }
 }

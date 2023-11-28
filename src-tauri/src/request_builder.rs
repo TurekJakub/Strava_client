@@ -54,48 +54,112 @@ impl RequestBuilder {
         )
     }
     // do get request for loqged users menu page and return it
-    pub fn get_user_menu(&self) -> Result<IndexMap<String, IndexMap<String, (bool, Vec<String>)>>, Error> {
-        let request_args = format!(
-            r#""sid":"{}","s5url":"{}","cislo":"{}","konto":"0","podminka":"","resetTables":"true""#,
-            self.sid.get().unwrap(),
-            self.url.get().unwrap(),
-            self.canteen_id.get().unwrap()
-        );
-        match self.do_order_post("https://app.strava.cz/api/objednavky", request_args) {
+    pub fn get_user_menu(
+        &self,
+    ) -> Result<IndexMap<String, IndexMap<String, (bool, String, Vec<String>)>>, String> {
+        match self.do_post_template(
+            "https://app.strava.cz/api/objednavky",
+            r#""konto":"0","podminka":"","resetTables":"true""#.to_string(),
+        ) {
             Ok(res) => match res.error_for_status() {
                 Ok(res) => {
-                   let mut menu = IndexMap::new();
-                   let response_json = serde_json::from_str::<serde_json::Value>(&res.text().unwrap()).unwrap();
-                   let menu_json = response_json.as_object().unwrap();
-                   for key in menu_json.keys(){
+                    let mut menu = IndexMap::new();
+                    let response_json =
+                        serde_json::from_str::<serde_json::Value>(&res.text().unwrap()).unwrap();
+                    let menu_json = response_json.as_object().unwrap();
+                    for key in menu_json.keys() {
                         let daily_menu_json = menu_json.get(key).unwrap().as_array().unwrap();
                         let mut daily_menu = IndexMap::new();
-                        for dish in daily_menu_json{
-                            let dish_name =format!("{} - {}", dish.get("popis").unwrap().as_str().unwrap().to_string(),dish.get("nazev").unwrap().as_str().unwrap());
-                            let  allergens: Vec<String> = dish.get("alergeny").unwrap().as_array().unwrap().into_iter().map(|f| f.as_array().unwrap().get(0).unwrap().as_str().unwrap().to_string()).collect(); 
-                            daily_menu.insert(dish_name, (dish.get("pocet").unwrap().as_i64().unwrap() == 1, allergens));
+                        for dish in daily_menu_json {
+                            let dish_name = format!(
+                                "{} - {}",
+                                dish.get("popis").unwrap().as_str().unwrap().to_string(),
+                                dish.get("nazev").unwrap().as_str().unwrap()
+                            );
+                            let allergens: Vec<String> = dish
+                                .get("alergeny")
+                                .unwrap()
+                                .as_array()
+                                .unwrap()
+                                .into_iter()
+                                .map(|f| {
+                                    f.as_array()
+                                        .unwrap()
+                                        .get(0)
+                                        .unwrap()
+                                        .as_str()
+                                        .unwrap()
+                                        .to_string()
+                                })
+                                .collect();
+                            daily_menu.insert(
+                                dish_name,
+                                (
+                                    dish.get("pocet").unwrap().as_i64().unwrap() == 1,
+                                    dish.get("veta").unwrap().as_str().unwrap().to_string(),
+                                    allergens,
+                                ),
+                            );
                         }
-                        menu.insert(daily_menu_json.get(0).unwrap().get("datum").unwrap().as_str().unwrap().to_string(), daily_menu);
-                   }
-                   
-                
-                   Ok(menu)
+                        menu.insert(
+                            daily_menu_json
+                                .get(0)
+                                .unwrap()
+                                .get("datum")
+                                .unwrap()
+                                .as_str()
+                                .unwrap()
+                                .to_string(),
+                            daily_menu,
+                        );
+                    }
+
+                    Ok(menu)
                 }
+                Err(e) => return Err("Při komunikaci se serverem došlo k chybě".to_string()),
+            },
+            Err(e) => return Err("Došlo k chybě při odesílání požadavku".to_string()),
+        }
+    }
+    pub fn do_post(&self, url: &str, body: String) -> Result<Response, Error> {
+        self.client.post(url).body(body).send()
+    }
+    pub fn do_get(&self, url: &str) -> Html {
+        let res = self.client.get(url).send();
+        Html::parse_document(res.unwrap().text().unwrap().as_str())
+    }
+    pub fn order_dish(&self, dish_id: String, amount: i8) -> Result<(), Error> {
+        match self.do_post_template(
+            "https://app.strava.cz/api/objednavky",
+            format!(r#""veta":"{}","pocet":"{}"#, dish_id, amount),
+        ) {
+            Ok(res) => match res.error_for_status() {
+                Ok(_) => Ok(()),
                 Err(e) => return Err(e),
             },
             Err(e) => return Err(e),
         }
     }
-    
-    pub fn do_get(&self, url: &str) -> Html {
-        let res = self.client.get(url).send();
-        Html::parse_document(res.unwrap().text().unwrap().as_str())
+    pub fn do_save_orders_request(&self) -> Result<(), Error> {
+        match self.do_post_template(
+            "https://app.strava.cz/api/saveOrders",
+            r#""xml":null"#.to_string(),
+        ) {
+            Ok(res) => match res.error_for_status() {
+                Ok(_) => Ok(()),
+                Err(e) => return Err(e),
+            },
+            Err(e) => return Err(e),
+        }
     }
-    pub fn do_post(&self, url: &str, body: String) -> Result<Response, Error> {
-        self.client.post(url).body(body).send()
-    }
-    pub fn do_order_post(&self, url: &str, body_args: String) -> Result<Response, Error> {
-        let body = format!(r#"{{"lang":"EN","ignoreCert":"false",{}}}"#, body_args);
+    pub fn do_post_template(&self, url: &str, body_args: String) -> Result<Response, Error> {
+        let body = format!(
+            r#"{{"lang":"EN","ignoreCert":"false","sid":"{}","s5url":"{}","cislo":"{}",{}}}"#,
+            self.sid.get().unwrap(),
+            self.url.get().unwrap(),
+            self.canteen_id.get().unwrap(),
+            body_args
+        );
         println!("{}", body);
         self.client.post(url).body(body).send()
     }

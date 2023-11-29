@@ -1,3 +1,4 @@
+use crate::request_builder::RequestBuilder;
 use chrono::Datelike;
 use fantoccini::{Client, ClientBuilder, Locator};
 use indexmap::IndexMap;
@@ -8,26 +9,7 @@ use std::{
     collections::HashSet,
     process::{Child, Command},
 };
-use tokio;
 use url::Url;
-
-use crate::request_builder::RequestBuilder;
-
-//fn main() {}
-#[tokio::main]
-async fn main() {
-    let s = Scraper::new().await;
-    let user = User {
-        username: "",
-        password: "",
-        cantine: "5763",
-        lang: "cs",
-        stay_logged: true,
-    };
-    s.login(&user).await;
-    //  s.scraper_user_menu().await;
-}
-
 // structure representing user
 pub struct User<'a> {
     pub username: &'a str,
@@ -115,8 +97,11 @@ impl Scraper {
                 .expect("failed to connect to WebDriver"),
         }
     }
-    pub async fn login(&self, user: &User<'_>) {
-        self.client.goto("https://app.strava.cz/").await.unwrap();
+    pub async fn login(&self, user: &User<'_>) -> Result<(), String> {
+        match self.client.goto("https://app.strava.cz/").await {
+            Ok(_) => (),
+            Err(_) => return Err("Při komunikaci se serverem došlo k chybě".to_string()),
+        };
         let cookie_button = self
             .client
             .wait()
@@ -151,20 +136,24 @@ impl Scraper {
             .await
             .unwrap();
 
-        self.client
+        match self
+            .client
             .find(Locator::Css(r#"button[type="submit"]"#))
             .await
             .unwrap()
             .click()
             .await
-            .unwrap();
+        {
+            Ok(_) => return Ok(()),
+            Err(_) => return Err("Při komunikaci se serverem došlo k chybě".to_string()),
+        };
     }
     // parse given html to menu represented by following structure HashMap<date: String, HashMap<dish_name: String, (is_ordered: bool, allergens: HashSet<String>)>>
     pub async fn scraper_user_menu(
         &self,
         request_builder: &RequestBuilder,
     ) -> Result<IndexMap<String, IndexMap<String, (bool, String, Vec<String>)>>, String> {
-        let api_data = request_builder.get_user_menu()?;
+        let api_data = request_builder.get_user_menu().await?;
         let page = self.get_menu_page().await;
         let now = chrono::Local::now();
         let mut menu = IndexMap::new();
@@ -213,7 +202,13 @@ impl Scraper {
                     dish_name.clone(),
                     (
                         ordered,
-                        api_data.get(&date).unwrap().get(&dish_name).unwrap().1.to_owned(),
+                        api_data
+                            .get(&date)
+                            .unwrap()
+                            .get(&dish_name)
+                            .unwrap()
+                            .1
+                            .to_owned(),
                         allergens,
                     ),
                 );

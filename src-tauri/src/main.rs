@@ -34,19 +34,36 @@ async fn get_menu_data() -> IndexMap<Date, IndexMap<String, DishInfo>> {
         .unwrap();
     CLIENT.get().unwrap().get_menu().await.unwrap()
 }
+#[tauri::command]
+async fn login(username: String, password: String, cantine: String, stay_logged: bool) -> bool {
+    let u = User {
+        username: &username,
+        password: &password,
+        cantine: &cantine,
+        lang: "CZ",
+        stay_logged: stay_logged,
+    };
+    CLIENT
+        .get_or_init(|| async { StravaClient::new().await.unwrap() })
+        .await
+        .login(&u)
+        .await
+        .unwrap();
+    return true;
+}
 
 #[tokio::main]
 async fn main() {
   
-    
+    /*
     let menu = get_menu_data().await;
     menu.keys()
         .for_each(|x| println!("{:?}, {:?}", x, menu.get(x).unwrap().keys()));
+    */
     
-    /*
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_menu_data, sort_menus_keys])
+        .invoke_handler(tauri::generate_handler![get_menu_data,login])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-    */
+
 }

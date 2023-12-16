@@ -15,6 +15,7 @@ static mut CACHE: OnceCell<
 */
 #[tauri::command]
 async fn get_menu_data() -> IndexMap<Date, IndexMap<String, DishInfo>> {
+    /* debug only
     dotenv().ok();
     let username = std::env::var("STRAVA_USERNAME").unwrap();
     let password = std::env::var("PASSWORD").unwrap();
@@ -26,16 +27,12 @@ async fn get_menu_data() -> IndexMap<Date, IndexMap<String, DishInfo>> {
         lang: "CZ",
         stay_logged: false,
     };
-    CLIENT
-        .get_or_init(|| async { StravaClient::new().await.unwrap() })
-        .await
-        .login(&u)
-        .await
-        .unwrap();
+     */
     CLIENT.get().unwrap().get_menu().await.unwrap()
+  
 }
 #[tauri::command]
-async fn login(username: String, password: String, cantine: String, stay_logged: bool) -> bool {
+async fn login(username: String, password: String, cantine: String, stay_logged: bool) -> Result<(),String> {
     let u = User {
         username: &username,
         password: &password,
@@ -47,9 +44,8 @@ async fn login(username: String, password: String, cantine: String, stay_logged:
         .get_or_init(|| async { StravaClient::new().await.unwrap() })
         .await
         .login(&u)
-        .await
-        .unwrap();
-    return true;
+        .await?;
+    Ok(())
 }
 
 #[tokio::main]

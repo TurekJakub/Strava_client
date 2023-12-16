@@ -1,8 +1,10 @@
-use crate::data_struct::{Date, DishInfo,User};
+use std::default;
+
+use crate::data_struct::{Date, DishInfo, User};
+use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use reqwest::{Client, Error, Response};
 use scraper::Html;
-use indexmap::IndexMap;
 pub struct RequestBuilder {
     client: Client,
     canteen_id: OnceCell<String>,
@@ -29,8 +31,8 @@ impl RequestBuilder {
             )
             .await
         {
-            Ok(res) => match res.error_for_status() {
-                Ok(res) => {
+            Ok(res) => match res.status().as_u16() {
+                200..=300 => {
                     let res_json =
                         serde_json::from_str::<serde_json::Value>(&res.text().await.unwrap())
                             .unwrap();
@@ -43,7 +45,18 @@ impl RequestBuilder {
                     self.canteen_id.set(user.cantine.to_string()).unwrap();
                     Ok(())
                 }
-                Err(e) => return Err(e.to_string()),
+                _ => match res
+                    .json::<serde_json::Value>()
+                    .await
+                    .unwrap()
+                    .get("number")
+                    .unwrap()
+                    .as_i64()
+                    .unwrap()
+                {
+                    20 => return Err("Špatné uživatelské jméno nebo heslo".to_string()),
+                    _ => return Err("Při komunikaci se serverem došlo k chybě".to_string()),
+                },
             },
             Err(_) => return Err("Při komunikaci se serverem došlo k chybě".to_string()),
         }
@@ -81,9 +94,21 @@ impl RequestBuilder {
                         for dish in daily_menu_json {
                             let dish_name = format!(
                                 "{} - {}",
-                                dish.get("popis").unwrap().as_str().unwrap().trim().to_string(),
-                                dish.get("nazev").unwrap().as_str().unwrap().trim().to_string()
-                            ).trim().to_string();
+                                dish.get("popis")
+                                    .unwrap()
+                                    .as_str()
+                                    .unwrap()
+                                    .trim()
+                                    .to_string(),
+                                dish.get("nazev")
+                                    .unwrap()
+                                    .as_str()
+                                    .unwrap()
+                                    .trim()
+                                    .to_string()
+                            )
+                            .trim()
+                            .to_string();
                             let allergens: Vec<String> = dish
                                 .get("alergeny")
                                 .unwrap()
@@ -117,7 +142,8 @@ impl RequestBuilder {
                                     .get("datum")
                                     .unwrap()
                                     .as_str()
-                                    .unwrap().to_string(),
+                                    .unwrap()
+                                    .to_string(),
                             ),
                             daily_menu,
                         );
@@ -130,7 +156,7 @@ impl RequestBuilder {
             Err(_) => return Err("Došlo k chybě při odesílání požadavku".to_string()),
         }
     }
-   
+
     pub async fn do_post(&self, url: &str, body: String) -> Result<Response, Error> {
         self.client.post(url).body(body).send().await
     }

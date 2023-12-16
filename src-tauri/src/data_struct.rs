@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 // structure representing date - consists of DateTime representing date and day of week in czech represented by String
-#[derive(Eq, Debug, Hash, Clone, Serialize)]
+#[derive(Eq, Debug, Hash, Clone)]
 pub struct Date {
     pub date: chrono::DateTime<Utc>,
     pub day_of_week: String,
@@ -47,6 +47,21 @@ impl Date {
                 .unwrap()
                 .to_string(),
         }
+    }
+}
+impl Serialize for Date {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(
+            format!(
+                "{} {}",
+                self.date.format("%d.%m.%Y").to_string(),
+                self.day_of_week.as_str()
+            )
+            .as_str(),
+        )
     }
 }
 // structure representing user

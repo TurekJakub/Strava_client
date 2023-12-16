@@ -82,7 +82,7 @@ impl Scraper {
             .await
         {
             Ok(_) => return Ok(()),
-            Err(err) => return Err(err.to_string()),
+            Err(err) => return Err("Chybné heslo".to_string()),
         };
     }
     // parse given html to menu represented by following structure HashMap<date: String, HashMap<dish_name: String, (is_ordered: bool, allergens: HashSet<String>)>>

@@ -1,11 +1,10 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use strava_client::data_struct::{Date, DishInfo, User};
-use dotenv::dotenv;
+// use dotenv::dotenv; // debug only
 use indexmap::IndexMap;
+use strava_client::data_struct::{Date, DishInfo, User};
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
-
 
 static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
 /*
@@ -14,7 +13,7 @@ static mut CACHE: OnceCell<
 > = OnceCell::new();
 */
 #[tauri::command]
-async fn get_menu_data() -> IndexMap<Date, IndexMap<String, DishInfo>> {
+async fn get_menu_data() -> (Vec<Date>, IndexMap<Date, IndexMap<String, DishInfo>>) {
     /* debug only
     dotenv().ok();
     let username = std::env::var("STRAVA_USERNAME").unwrap();
@@ -27,12 +26,23 @@ async fn get_menu_data() -> IndexMap<Date, IndexMap<String, DishInfo>> {
         lang: "CZ",
         stay_logged: false,
     };
-     */
-    CLIENT.get().unwrap().get_menu().await.unwrap()
-  
+    CLIENT
+    .get_or_init(|| async { StravaClient::new().await.unwrap() })
+    .await
+    .login(&u)
+    .await
+    .unwrap();
+    */
+    let menu = CLIENT.get().unwrap().get_menu().await.unwrap();
+    (menu.keys().cloned().collect(), menu)
 }
 #[tauri::command]
-async fn login(username: String, password: String, cantine: String, stay_logged: bool) -> Result<(),String> {
+async fn login(
+    username: String,
+    password: String,
+    cantine: String,
+    stay_logged: bool,
+) -> Result<(), String> {
     let u = User {
         username: &username,
         password: &password,
@@ -50,16 +60,14 @@ async fn login(username: String, password: String, cantine: String, stay_logged:
 
 #[tokio::main]
 async fn main() {
-  
     /*
     let menu = get_menu_data().await;
     menu.keys()
         .for_each(|x| println!("{:?}, {:?}", x, menu.get(x).unwrap().keys()));
     */
-    
+
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_menu_data,login])
+        .invoke_handler(tauri::generate_handler![get_menu_data, login])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-
 }

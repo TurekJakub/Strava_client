@@ -1,13 +1,10 @@
 <script lang="ts">
 	import DailyMenu from '$lib/DailyMenu.svelte';
-	export let menuData: Map<string, Map<string, DishInfo>>;
-	//let keys: string[] = Array.from(menuData.keys());
-	console.log(menuData);
-	let keys: string[] = []
+	export let menuData: MenuData;
 </script>
 
-<div id="menu">
-	{#each  Object.entries(menuData) as [date, menu]}
-		<DailyMenu {date} menu={menu || new Map()} />
+<div class="flex flex-col items-center w-full" id="menu">
+	{#each menuData[0] as date}	
+		<DailyMenu {date} menu={ menuData[1][date] || new Map()} />
 	{/each}
 </div>

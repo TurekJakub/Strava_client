@@ -36,12 +36,12 @@
 	}
 </script>
 <div class=flex-col>	
-	<div id="menu" class="bg-slate-800 h-1/3 px-5 pt-1 rounded-md" style="width: 300px; height: 335px;">
-		<h2 class="text-white my-3 w-full md:text-4xl text-2xl text-center">Přihlášení</h2>
+	<div id="menu" class="dark:bg-slate-800 h-1/3 px-5 pt-1 rounded-md" style="width: 300px; height: 335px;">
+		<h2 class="dark:text-white my-3 w-full md:text-4xl text-2xl text-center">Přihlášení</h2>
 		<form on:submit|preventDefault={submit} class="bg-slate-800 flex flex-col h-fit">
 			<label class="text-white" for="cantine">Číslo jídelny:</label>
 			<input
-			class="autofill:bg-slate-800 bg-slate-800 text-white border-2 px-1 border-white rounded-md focus:outline-2 focus:outline-violet-700 focus:outline focus:border-none"
+			class="dark:dark-mode-autofill bg-slate-800 text-white border-2 px-1 border-white rounded-md focus:outline-2 focus:outline-violet-700 focus:outline focus:border-none"
 			type="text"
 			name="cantine"
 			id="cantine"
@@ -50,7 +50,7 @@
 			/>
 			<label class="text-white mt-2" for="username">Uživatelské jméno:</label>
 			<input
-			class="autofill:bg-slate-800 bg-slate-800 text-white border-2 px-1 border-white rounded-md focus:outline-2 focus:outline-violet-700 focus:outline focus:border-none"
+			class="dark:dark-mode-autofill bg-slate-800 text-white border-2 px-1 border-white rounded-md focus:outline-2 focus:outline-violet-700 focus:outline focus:border-none"
 			type="text"
 			name="username"
 			id="username"
@@ -64,7 +64,7 @@
 			<input
 			{type}
 			{value}
-			class="autofill:bg-slate-800 bg-slate-800 text-white flex-grow focus:outline-none"
+			class="dark:dark-mode-autofill bg-slate-800 text-white flex-grow focus:outline-none"
 			name="password"
 			id="password"
 			on:input={onPasswordInput}

@@ -1,5 +1,3 @@
-use std::default;
-
 use crate::data_struct::{Date, DishInfo, User};
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;

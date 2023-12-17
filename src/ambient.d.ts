@@ -1,9 +1,13 @@
 type DishInfo = {
     id: string;
     allergens: string[];
-    ordered: boolean;
+    order_state: boolean;
 };
-type MenuDate = {
-    date: string;
-    day_of_week: string;
+type Menu = {
+    [key: string]: DailyMenu;
 }
+type DailyMenu = {
+    [key: string]: DishInfo;
+
+}
+type MenuData = [string[], Menu];

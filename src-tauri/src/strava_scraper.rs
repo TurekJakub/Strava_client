@@ -4,11 +4,8 @@ use chrono::prelude::*;
 use fantoccini::{Client, ClientBuilder, Locator};
 use indexmap::IndexMap;
 use scraper::{Html, Selector};
+use std::process::{Child, Command};
 use std::time::Duration;
-use std::{
-    collections::HashSet,
-    process::{Child, Command},
-};
 use url::Url;
 pub struct Scraper {
     client: Client,
@@ -82,7 +79,7 @@ impl Scraper {
             .await
         {
             Ok(_) => return Ok(()),
-            Err(err) => return Err("Chybné heslo".to_string()),
+            Err(_) => return Err("Chybné přihlašovací údaje".to_string()),
         };
     }
     // parse given html to menu represented by following structure HashMap<date: String, HashMap<dish_name: String, (is_ordered: bool, allergens: HashSet<String>)>>

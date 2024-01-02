@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { invoke } from "@tauri-apps/api/tauri";
+
 	export let date: string;
 	export let menu: DailyMenu;
-	function selectDish(e : Event) {
+	async function selectDish(e : Event) {
 		let name = (e.target as HTMLInputElement).value;
 		let keys = Object.keys(menu);
 		for (let i = 0; i < keys.length; i++) {
@@ -10,6 +12,8 @@
 				menu[keys[i]].order_state = false;
 			} 
 		}
+		console.log(menu[name].order_state);
+		await invoke("order_dish", { dishId:menu[name].id, ordered:menu[name].order_state});
 	}
 </script>
 
@@ -23,7 +27,7 @@
 				type="checkbox"
 				bind:value={name}
 				bind:checked={dish.order_state}
-				on:change={selectDish}
+				on:change|preventDefault={selectDish}
 			/>
 			<div class="bg-slate-800 text-white text-lg">{name}</div>
 		</div>

@@ -13,7 +13,8 @@ static mut CACHE: OnceCell<
 > = OnceCell::new();
 */
 #[tauri::command]
-async fn get_menu_data() -> (Vec<Date>, IndexMap<Date, IndexMap<String, DishInfo>>) {
+async fn get_menu_data() -> Result<(Vec<Date>, IndexMap<Date, IndexMap<String, DishInfo>>), String>
+{
     /* debug only
     dotenv().ok();
     let username = std::env::var("STRAVA_USERNAME").unwrap();
@@ -33,8 +34,8 @@ async fn get_menu_data() -> (Vec<Date>, IndexMap<Date, IndexMap<String, DishInfo
     .await
     .unwrap();
     */
-    let menu = CLIENT.get().unwrap().get_menu().await.unwrap();
-    (menu.keys().cloned().collect(), menu)
+    let menu = CLIENT.get().unwrap().get_menu().await?;
+    Ok((menu.keys().cloned().collect(), menu))
 }
 #[tauri::command]
 async fn login(
@@ -57,17 +58,36 @@ async fn login(
         .await?;
     Ok(())
 }
-
+#[tauri::command]
+async fn order_dish(dish_id: String, ordered: bool) -> Result<(), String> {
+    CLIENT.get().unwrap().order_dish(dish_id, ordered).await?;
+    Ok(())
+}
+#[tauri::command]
+async fn save_orders() -> Result<(), String> {
+    CLIENT.get().unwrap().save_orders().await?;
+    Ok(())
+}
 #[tokio::main]
 async fn main() {
     /*
     let menu = get_menu_data().await;
     menu.keys()
         .for_each(|x| println!("{:?}, {:?}", x, menu.get(x).unwrap().keys()));
-    */
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_menu_data, login])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    .invoke_handler(tauri::generate_handler![get_menu_data, login, order_dish, save_orders])
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
+    */
+    keytar::set_password("strava_client", "username", "password").unwrap();
+    keytar::set_password("strava_client", "username1", "password1").unwrap();
+    let x = keytar::find_password("strava_client").unwrap();
+    println!("{}", x.password);
+    println!(
+        "{}",
+        keytar::get_password("strava_client", "username")
+            .unwrap()
+            .password
+    )
 }

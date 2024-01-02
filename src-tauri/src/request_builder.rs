@@ -1,8 +1,11 @@
-use crate::data_struct::{Date, DishInfo, User};
+use std::{fmt::format, collections::{HashMap, HashSet}, time::SystemTime};
+
+use crate::data_struct::{Date, DishInfo, User, DishCancelingSetting};
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
-use reqwest::{Client, Error, Response};
+use reqwest::{Client,    Response};
 use scraper::Html;
+
 pub struct RequestBuilder {
     client: Client,
     canteen_id: OnceCell<String>,
@@ -19,7 +22,7 @@ impl RequestBuilder {
         }
     }
     // authenticate user and retun errors if occured
-    pub async fn login(&self, user: &User<'_>) -> Result<(), String> {
+    pub async fn do_login_request(&self, user: &User<'_>) -> Result<(), String> {
         self.do_get("https://app.strava.cz/prihlasit-se?jidelna")
             .await;
         match self
@@ -69,13 +72,13 @@ impl RequestBuilder {
     }
     */
     // do get request for loqged users menu page and return it
-    pub async fn get_user_menu(
+    pub async fn do_get_user_menu_request(
         &self,
     ) -> Result<IndexMap<Date, IndexMap<String, DishInfo>>, String> {
         match self
             .do_post_template(
                 "https://app.strava.cz/api/objednavky",
-                r#""konto":"0","podminka":"","resetTables":"true""#.to_string(),
+                r#""konto":"0","podminka":"","resetTables":"true""#.to_string(),"s5url"
             )
             .await
         {
@@ -155,52 +158,75 @@ impl RequestBuilder {
         }
     }
 
-    pub async fn do_post(&self, url: &str, body: String) -> Result<Response, Error> {
-        self.client.post(url).body(body).send().await
+    pub async fn do_post(&self, url: &str, body: String) -> Result<Response, String> {
+        match self.client.post(url).body(body).send().await{
+            Ok(res) => Ok(res),
+            Err(e) => Err(e.to_string())
+        }
     }
     pub async fn do_get(&self, url: &str) -> Html {
         let res = self.client.get(url).send();
         Html::parse_document(res.await.unwrap().text().await.unwrap().as_str())
     }
-    pub async fn order_dish(&self, dish_id: String, amount: i8) -> Result<(), Error> {
+    pub async fn do_order_dish_request(&self, dish_id: String, amount: u8) -> Result<(), String> {
         match self
             .do_post_template(
-                "https://app.strava.cz/api/objednavky",
-                format!(r#""veta":"{}","pocet":"{}"#, dish_id, amount),
+                "https://app.strava.cz/api/pridejJidloS5",
+                format!(r#""veta":"{}","pocet":"{}""#, dish_id, amount),"url"
             )
             .await
         {
             Ok(res) => match res.error_for_status() {
                 Ok(_) => Ok(()),
-                Err(e) => return Err(e),
+                Err(e) => return Err(e.to_string()),
             },
-            Err(e) => return Err(e),
+            Err(e) => return Err(e.to_string()),
         }
     }
-    pub async fn do_save_orders_request(&self) -> Result<(), Error> {
+    pub async fn do_save_orders_request(&self) -> Result<(), String> {
         match self
             .do_post_template(
                 "https://app.strava.cz/api/saveOrders",
-                r#""xml":null"#.to_string(),
+                r#""xml":null"#.to_string(),"url"
             )
             .await
         {
             Ok(res) => match res.error_for_status() {
                 Ok(_) => Ok(()),
-                Err(e) => return Err(e),
+                Err(e) => return Err(e.to_string()),
             },
             Err(e) => return Err(e),
         }
     }
-    pub async fn do_post_template(&self, url: &str, body_args: String) -> Result<Response, Error> {
+    pub async fn do_post_template(&self, url: &str, body_args: String,url_arg:&str) -> Result<Response, String> {
         let body = format!(
-            r#"{{"lang":"EN","ignoreCert":"false","sid":"{}","s5url":"{}","cislo":"{}",{}}}"#,
+            r#"{{"lang":"EN","ignoreCert":"false","sid":"{}","{}":"{}","cislo":"{}",{}}}"#,
             self.sid.get().unwrap(),
+            url_arg,
             self.url.get().unwrap(),
             self.canteen_id.get().unwrap(),
             body_args
         );
         println!("{}", body);
-        self.client.post(url).body(body).send().await
+        self.do_post(url, body).await
+    }
+    pub async fn do_db_auth_request(&self, user: User<'_>) -> Result<Response, String> {
+        self.do_post("endpoint", serde_json::to_string(&user).unwrap()).await // TODO add endpoint url
+    }
+    pub async fn get_last_settings_update(&self, name: String) -> Result<SystemTime, String> {
+        match self.do_post("endpoint", format!(r#"{{"name":"{}"}}"#, name)).await { // TODO add endpoint url
+            Ok(res) =>{
+              return Ok(*res.json::<HashMap<String,SystemTime>>().await.unwrap().get("date").unwrap());
+            },
+            Err(e) => Err(e),
+        }
+    }
+    pub async fn get_settings(&self, name: String) -> Result<DishCancelingSetting,String> {
+        match self.do_post("endpoint", format!(r#"{{"name":"{}"}}"#, name)).await { // TODO add endpoint url
+            Ok(res) =>{
+              return Ok(res.json::<DishCancelingSetting>().await.unwrap());
+            },
+            Err(e) => Err(e),
+        }
     }
 }

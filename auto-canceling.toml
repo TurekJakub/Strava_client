@@ -1,0 +1,2 @@
+#contains the information about required for properly working automatic orders cancelation
+users = ["turekj"]

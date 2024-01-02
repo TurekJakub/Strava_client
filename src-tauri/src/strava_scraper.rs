@@ -87,7 +87,7 @@ impl Scraper {
         &self,
         request_builder: &RequestBuilder,
     ) -> Result<IndexMap<Date, IndexMap<String, DishInfo>>, String> {
-        let api_data = request_builder.get_user_menu().await?;
+        let api_data = request_builder.do_get_user_menu_request().await?;
         println!("{:?}", api_data);
         let page = self.get_menu_page().await;
         let now = chrono::Local::now();

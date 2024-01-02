@@ -1,7 +1,9 @@
 use chrono::prelude::*;
+use serde::Deserialize;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use std::time::SystemTime;
 
 // structure representing date - consists of DateTime representing date and day of week in czech represented by String
 #[derive(Eq, Debug, Hash, Clone)]
@@ -94,4 +96,10 @@ pub struct DishInfo {
     pub id: String,
     pub allergens: Vec<String>,
     pub order_state: bool,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DishCancelingSetting{
+    pub last_modified: SystemTime,
+    pub blacklisted_dishes: HashSet<String>,
+    pub balacklisted_allergens: HashSet<u8>,
 }

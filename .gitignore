@@ -12,3 +12,4 @@ README.md
 /src-tauri/target
 /src-tauri/bin
 /src-tauri/icons
+userdata/turekj.toml

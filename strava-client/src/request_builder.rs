@@ -1,9 +1,13 @@
-use std::{fmt::format, collections::{HashMap, HashSet}, time::SystemTime};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::format,
+    time::SystemTime,
+};
 
-use crate::data_struct::{Date, DishInfo, User, DishCancelingSetting};
+use crate::data_struct::{Date, DishCancelingSetting, DishInfo, User};
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
-use reqwest::{Client,    Response};
+use reqwest::{Client, Response};
 use scraper::Html;
 
 pub struct RequestBuilder {
@@ -78,7 +82,8 @@ impl RequestBuilder {
         match self
             .do_post_template(
                 "https://app.strava.cz/api/objednavky",
-                r#""konto":"0","podminka":"","resetTables":"true""#.to_string(),"s5url"
+                r#""konto":"0","podminka":"","resetTables":"true""#.to_string(),
+                "s5url",
             )
             .await
         {
@@ -159,9 +164,9 @@ impl RequestBuilder {
     }
 
     pub async fn do_post(&self, url: &str, body: String) -> Result<Response, String> {
-        match self.client.post(url).body(body).send().await{
+        match self.client.post(url).body(body).send().await {
             Ok(res) => Ok(res),
-            Err(e) => Err(e.to_string())
+            Err(e) => Err(e.to_string()),
         }
     }
     pub async fn do_get(&self, url: &str) -> Html {
@@ -172,7 +177,8 @@ impl RequestBuilder {
         match self
             .do_post_template(
                 "https://app.strava.cz/api/pridejJidloS5",
-                format!(r#""veta":"{}","pocet":"{}""#, dish_id, amount),"url"
+                format!(r#""veta":"{}","pocet":"{}""#, dish_id, amount),
+                "url",
             )
             .await
         {
@@ -187,7 +193,8 @@ impl RequestBuilder {
         match self
             .do_post_template(
                 "https://app.strava.cz/api/saveOrders",
-                r#""xml":null"#.to_string(),"url"
+                r#""xml":null"#.to_string(),
+                "url",
             )
             .await
         {
@@ -198,7 +205,12 @@ impl RequestBuilder {
             Err(e) => return Err(e),
         }
     }
-    pub async fn do_post_template(&self, url: &str, body_args: String,url_arg:&str) -> Result<Response, String> {
+    pub async fn do_post_template(
+        &self,
+        url: &str,
+        body_args: String,
+        url_arg: &str,
+    ) -> Result<Response, String> {
         let body = format!(
             r#"{{"lang":"EN","ignoreCert":"false","sid":"{}","{}":"{}","cislo":"{}",{}}}"#,
             self.sid.get().unwrap(),
@@ -211,21 +223,34 @@ impl RequestBuilder {
         self.do_post(url, body).await
     }
     pub async fn do_db_auth_request(&self, user: User<'_>) -> Result<Response, String> {
-        self.do_post("endpoint", serde_json::to_string(&user).unwrap()).await // TODO add endpoint url
+        self.do_post("endpoint", serde_json::to_string(&user).unwrap())
+            .await // TODO add endpoint url
     }
     pub async fn get_last_settings_update(&self, name: String) -> Result<SystemTime, String> {
-        match self.do_post("endpoint", format!(r#"{{"name":"{}"}}"#, name)).await { // TODO add endpoint url
-            Ok(res) =>{
-              return Ok(*res.json::<HashMap<String,SystemTime>>().await.unwrap().get("date").unwrap());
-            },
+        match self
+            .do_post(
+                "http://127.0.0.1:8080/update_time",
+                format!(r#"{{"name":"{}"}}"#, name),
+            )
+            .await
+        {
+            // TODO add endpoint url
+            Ok(res) => {
+               // return Ok(serde_json::from_str(&res.text().await.unwrap()).unwrap());
+                return Ok(*res.json::<HashMap<String,SystemTime>>().await.unwrap().get("last_modified").unwrap());
+            }
             Err(e) => Err(e),
         }
     }
-    pub async fn get_settings(&self, name: String) -> Result<DishCancelingSetting,String> {
-        match self.do_post("endpoint", format!(r#"{{"name":"{}"}}"#, name)).await { // TODO add endpoint url
-            Ok(res) =>{
-              return Ok(res.json::<DishCancelingSetting>().await.unwrap());
-            },
+    pub async fn get_settings(&self, name: String) -> Result<DishCancelingSetting, String> {
+        match self
+            .do_post("endpoint", format!(r#"{{"name":"{}"}}"#, name))
+            .await
+        {
+            // TODO add endpoint url
+            Ok(res) => {
+                return Ok(res.json::<DishCancelingSetting>().await.unwrap());
+            }
             Err(e) => Err(e),
         }
     }

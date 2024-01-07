@@ -13,3 +13,5 @@ README.md
 /src-tauri/bin
 /src-tauri/icons
 userdata/turekj.toml
+/api/target
+/strava-client/target

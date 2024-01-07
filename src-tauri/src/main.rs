@@ -70,16 +70,13 @@ async fn save_orders() -> Result<(), String> {
 }
 #[tokio::main]
 async fn main() {
-    /*
-    let menu = get_menu_data().await;
-    menu.keys()
-        .for_each(|x| println!("{:?}, {:?}", x, menu.get(x).unwrap().keys()));
-
+    
+    
     tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![get_menu_data, login, order_dish, save_orders])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
-    */
+    /*
     keytar::set_password("strava_client", "username", "password").unwrap();
     keytar::set_password("strava_client", "username1", "password1").unwrap();
     let x = keytar::find_password("strava_client").unwrap();
@@ -87,7 +84,8 @@ async fn main() {
     println!(
         "{}",
         keytar::get_password("strava_client", "username")
-            .unwrap()
-            .password
+        .unwrap()
+        .password
     )
+    */
 }

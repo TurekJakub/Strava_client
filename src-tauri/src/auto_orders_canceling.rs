@@ -1,4 +1,4 @@
-use crate::request_builder::RequestBuilder;
+use strava_client::request_builder::RequestBuilder;
 struct OrdersCanceling {
     client: RequestBuilder,
 }

@@ -3,7 +3,7 @@ use actix_session::{
 };
 use actix_web::cookie::Key;
 use tokio::sync::OnceCell;
-use super::strava::StravaClient;
+use strava_client::strava_client::StravaClient;
 use actix_web::web::resource;
 use actix_web::{get, guard::fn_guard, post, web, App, HttpResponse, HttpServer, Responder};
 use mongodm::mongo::change_stream::session;

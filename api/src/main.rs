@@ -2,12 +2,16 @@ use actix_session::{
     storage::CookieSessionStore, Session, SessionExt, SessionGetError, SessionMiddleware,
 };
 use actix_web::cookie::Key;
-use tokio::sync::OnceCell;
-use strava_client::strava_client::StravaClient;
 use actix_web::web::resource;
-use actix_web::{get, guard::fn_guard, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{
+    get,
+    guard::{fn_guard, GuardContext, Post},
+    post, web, App, HttpResponse, HttpServer, Responder,
+};
 use mongodm::mongo::change_stream::session;
 use std::time::SystemTime;
+use strava_client::strava_client::StravaClient;
+use tokio::sync::OnceCell;
 
 static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
 
@@ -24,29 +28,42 @@ async fn main() -> std::io::Result<()> {
                     .build(),
             )
             .service(
-                web::resource("/update_time").route(
-                    web::route()
-                        .guard(fn_guard(|x| {
-                            match x.get_session().get::<String>("username") {
-                                Ok(Some(username)) => {
-                                    println!("username: {}", username);
-                                    return true;
-                                }
-                                _ => {
-                                    return false;
-                                }
-                            }
-                        }))
-                        .to(echo),
-                ),
+                web::resource("/update_time")
+                    .route(
+                        web::route()
+                            .guard(fn_guard(route_guard))
+                            .guard(Post())
+                            .to(echo),
+                    )
+
+                    .default_service(web::route().to(unauthorized)),
             )
             .service(login)
+            .service(
+                web::resource("/logout").route(
+                    web::route()
+                        .guard(fn_guard(route_guard)).guard(Post())
+                        .to(logout),
+                )
+                .default_service(web::route().to(unauthorized))
+                ,
+            )
     })
     .bind(("127.0.0.1", 8080))?
     .run()
     .await
 }
-
+fn route_guard(x: &GuardContext) -> bool {
+    match x.get_session().get::<String>("username") {
+        Ok(Some(username)) => {
+            println!("username: {}", username);
+            return true;
+        }
+        _ => {
+            return false;
+        }
+    }
+}
 //#[post("/update_time")]
 async fn echo(req_body: String, session: Session) -> impl Responder {
     /*
@@ -69,6 +86,7 @@ async fn echo(req_body: String, session: Session) -> impl Responder {
 }
 #[post("/login")]
 async fn login(req_body: String, session: Session) -> impl Responder {
+    /* */
     match req_body.as_str() {
         r#""UwU""# => {
             session.renew();
@@ -85,4 +103,13 @@ async fn login(req_body: String, session: Session) -> impl Responder {
             ));
         }
     }
+}
+//#[post("/logout")]
+async fn logout(session: Session) -> impl Responder {
+    let username = session.get::<String>("username").unwrap().unwrap();
+    session.purge();
+    return HttpResponse::Ok().body(format!(r#"{{"status":"logged out","name":{}}}"#, username));
+}
+async fn unauthorized() -> impl Responder {
+    return HttpResponse::Unauthorized().body(format!(r#"{{"message":"action forbiden"}}"#,));
 }

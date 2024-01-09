@@ -68,11 +68,16 @@ impl Serialize for Date {
     }
 }
 // structure representing user
+#[derive(Debug, Deserialize)]
 pub struct User<'a> {
+    #[serde(rename = "jmeno")]
     pub username: &'a str,
+    #[serde(rename = "heslo")]
     pub password: &'a str,
+    #[serde(rename = "cislo")]
     pub cantine: &'a str,
     pub lang: &'a str,
+    #[serde(rename = "zustatPrihlasen")]
     pub stay_logged: bool,
 }
 // serialize user to json in format suitable for strava api request body
@@ -102,4 +107,8 @@ pub struct DishCancelingSetting{
     pub last_modified: SystemTime,
     pub blacklisted_dishes: HashSet<String>,
     pub balacklisted_allergens: HashSet<u8>,
+}
+#[derive(Deserialize, Serialize)]
+pub struct Config {
+   pub settings: HashMap<String, String>,
 }

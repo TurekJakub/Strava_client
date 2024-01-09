@@ -312,7 +312,8 @@ version = "0.1.0"
 dependencies = [
  "actix-session",
  "actix-web",
- "mongodm",
+ "dotenv",
+ "mongodb",
  "serde",
  "serde_json",
  "strava-client",
@@ -1495,19 +1496,6 @@ dependencies = [
  "typed-builder",
  "uuid",
  "webpki-roots",
-]
-
-[[package]]
-name = "mongodm"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ddedf63a822ed4f22684d2f27c5f6c95eed044e836d95ff6c36e3970d0e4297"
-dependencies = [
- "async-trait",
- "futures-core",
- "futures-util",
- "mongodb",
- "serde",
 ]
 
 [[package]]

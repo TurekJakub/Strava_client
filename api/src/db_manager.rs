@@ -1,15 +1,9 @@
 use mongodb::{
     bson::{doc, Document},
-    options::AuthMechanism,
     options::ClientOptions,
-    options::Credential,
-    options::ServerApi,
-    options::ServerApiVersion,
-    options::Tls,
-    options::TlsOptions,
     Client, Collection,
 };
-use std::{path::PathBuf, env};
+use std::{env};
 pub async fn connect() -> mongodb::error::Result<()> {
     dotenv::dotenv().ok();
     let client_options = ClientOptions::parse(format!(

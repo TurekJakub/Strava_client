@@ -1,10 +1,6 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::format,
-    time::SystemTime,
-};
+use std::{collections::HashMap, time::SystemTime};
 
-use crate::data_struct::{Date, DishCancelingSetting, DishInfo, User};
+use crate::data_struct::{Date, DishInfo, OrdersCancelingSettings, User};
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use reqwest::{Client, Response};
@@ -226,30 +222,29 @@ impl RequestBuilder {
         self.do_post("endpoint", serde_json::to_string(&user).unwrap())
             .await // TODO add endpoint url
     }
-    pub async fn get_last_settings_update(&self, name: String) -> Result<SystemTime, String> {
+    pub async fn get_last_settings_update(&self) -> Result<SystemTime, String> {
         match self
-            .do_post(
-                "http://127.0.0.1:8080/update_time",
-                format!(r#"{{"name":"{}"}}"#, name),
-            )
+            .do_post("http://127.0.0.1:8080/update_time", "".to_string())
             .await
         {
             // TODO add endpoint url
             Ok(res) => {
-               // return Ok(serde_json::from_str(&res.text().await.unwrap()).unwrap());
-                return Ok(*res.json::<HashMap<String,SystemTime>>().await.unwrap().get("last_modified").unwrap());
+                // return Ok(serde_json::from_str(&res.text().await.unwrap()).unwrap());
+                return Ok(*res
+                    .json::<HashMap<String, SystemTime>>()
+                    .await
+                    .unwrap()
+                    .get("last_modified")
+                    .unwrap());
             }
             Err(e) => Err(e),
         }
     }
-    pub async fn get_settings(&self, name: String) -> Result<DishCancelingSetting, String> {
-        match self
-            .do_post("endpoint", format!(r#"{{"name":"{}"}}"#, name))
-            .await
-        {
+    pub async fn get_settings(&self) -> Result<OrdersCancelingSettings, String> {
+        match self.do_post("endpoint", "".to_string()).await {
             // TODO add endpoint url
             Ok(res) => {
-                return Ok(res.json::<DishCancelingSetting>().await.unwrap());
+                return Ok(res.json::<OrdersCancelingSettings>().await.unwrap());
             }
             Err(e) => Err(e),
         }

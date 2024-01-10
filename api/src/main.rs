@@ -12,7 +12,7 @@ use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
 
 static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
-mod db_manager;
+mod db_client;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -44,35 +44,30 @@ async fn main() -> std::io::Result<()> {
             .service(login)
             .service(
                 web::resource("/logout")
-                .route(
-                    web::route()
-                    .guard(fn_guard(route_guard))
-                    .guard(Post())
-                    .to(logout),
-                )
-                .default_service(web::route().to(unauthorized)),
+                    .route(
+                        web::route()
+                            .guard(fn_guard(route_guard))
+                            .guard(Post())
+                            .to(logout),
+                    )
+                    .default_service(web::route().to(unauthorized)),
             )
             .service(
                 web::resource("/user_menu")
-                .route(
-                    web::route()
-                    .guard(fn_guard(route_guard))
-                    .guard(Post())
-                    .to(get_user_menu),
-                )
-                .default_service(web::route().to(unauthorized)),
+                    .route(
+                        web::route()
+                            .guard(fn_guard(route_guard))
+                            .guard(Post())
+                            .to(get_user_menu),
+                    )
+                    .default_service(web::route().to(unauthorized)),
             )
     })
     .bind(("127.0.0.1", 8080))?
     .run()
     .await
 }
-/*
-#[tokio::main]
-async fn main(){
-    db_manager::connect().await.unwrap();
-}
-*/
+
 fn route_guard(x: &GuardContext) -> bool {
     match x.get_session().get::<String>("username") {
         Ok(Some(_)) => {
@@ -84,16 +79,14 @@ fn route_guard(x: &GuardContext) -> bool {
     }
 }
 async fn update_time() -> impl Responder {
-    return HttpResponse::Ok().body(
-        r#"{"last_modified":{"secs_since_epoch": 111, "nanos_since_epoch": 1}}"#
-        
-    );
+    return HttpResponse::Ok()
+        .body(r#"{"last_modified":{"secs_since_epoch": 111, "nanos_since_epoch": 1}}"#);
 }
 async fn get_user_menu() -> impl Responder {
     let menu = CLIENT.get().unwrap().get_menu().await.unwrap();
     return HttpResponse::Ok().body(format!(
-        r#"{{"name":{}}}"#, serde_json::to_string(&menu).unwrap()
-        
+        r#"{{"name":{}}}"#,
+        serde_json::to_string(&menu).unwrap()
     ));
 }
 #[post("/login")]
@@ -133,6 +126,7 @@ async fn login(req_body: String, session: Session) -> impl Responder {
         }
     }
 }
+
 //#[post("/logout")]
 async fn logout(session: Session) -> impl Responder {
     let username = session.get::<String>("username").unwrap().unwrap();

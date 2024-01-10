@@ -103,10 +103,16 @@ pub struct DishInfo {
     pub order_state: bool,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DishCancelingSetting{
-    pub last_modified: SystemTime,
+pub struct OrdersCancelingSettings{
     pub blacklisted_dishes: HashSet<String>,
     pub balacklisted_allergens: HashSet<u8>,
+    pub strategy: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UserDBEntry {
+    pub username: String,  
+    pub settings: OrdersCancelingSettings,
+    pub settings_update_time: SystemTime,
 }
 #[derive(Deserialize, Serialize)]
 pub struct Config {

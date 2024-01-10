@@ -3,8 +3,6 @@ use crate::strava_scraper::Scraper;
 use crate::data_struct::{User, DishInfo, Date, Config};
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::{env, fs};
 
 

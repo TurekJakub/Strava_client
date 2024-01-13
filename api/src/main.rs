@@ -2,20 +2,24 @@ use actix_session::{storage::CookieSessionStore, Session, SessionExt, SessionMid
 use actix_web::cookie::Key;
 
 use actix_web::{
-    guard::{fn_guard, GuardContext, Not, Post},
+    guard::{fn_guard, Any, Get, GuardContext, Not, Post},
     post, web, App, HttpResponse, HttpServer, Responder,
 };
 use std::collections::HashMap;
+use std::env;
 
-use strava_client::data_struct::{Config, User};
+use db_client::DbClient;
+use strava_client::data_struct::{Config, SettingsRequest, User, UserDBEntry};
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
 
 static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
+static DB_CLIENT: OnceCell<DbClient> = OnceCell::const_new();
 mod db_client;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    dotenv::dotenv().ok();
     let secret_key = Key::generate();
     HttpServer::new(move || {
         App::new()
@@ -62,8 +66,30 @@ async fn main() -> std::io::Result<()> {
                     )
                     .default_service(web::route().to(unauthorized)),
             )
+            .service(
+                web::resource("/user_settings")
+                    .route(
+                        web::post()
+                            .guard(fn_guard(route_guard))
+                            .to(set_user_settings),
+                    )
+                    .route(
+                        web::get()
+                            .guard(fn_guard(route_guard))
+                            .to(get_user_settings),
+                    )
+                    .route(
+                        web::route()
+                            .guard(Any(Not(Get())).or(Not(Post())))
+                            .to(|| HttpResponse::MethodNotAllowed()),
+                    )
+                    .default_service(web::route().to(unauthorized)),
+            )
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind((
+        env::var("IP_ADRESS").unwrap(),
+        env::var("PORT").unwrap().parse().unwrap(),
+    ))?
     .run()
     .await
 }
@@ -79,8 +105,25 @@ fn route_guard(x: &GuardContext) -> bool {
     }
 }
 async fn update_time() -> impl Responder {
-    return HttpResponse::Ok()
-        .body(r#"{"last_modified":{"secs_since_epoch": 111, "nanos_since_epoch": 1}}"#);
+    let time = DB_CLIENT
+        .get_or_init(|| async { DbClient::new().await.unwrap() })
+        .await
+        .get_settings_update_time("test")
+        .await;
+    match time {
+        Ok(time) => match time {
+            Some(time) => succes(
+                "settings_update_time",
+                serde_json::to_string(&time).unwrap().as_str(),
+            ),
+            None => {
+                return HttpResponse::NoContent().body(format!(
+                    r#"{{"message":"no settings found for given user"}}"#,
+                ));
+            }
+        },
+        Err(_) => server_error("server error occurred while loading user data"),
+    }
 }
 async fn get_user_menu() -> impl Responder {
     let menu = CLIENT.get().unwrap().get_menu().await.unwrap();
@@ -109,7 +152,7 @@ async fn login(req_body: String, session: Session) -> impl Responder {
                     session.renew();
                     session.insert("username", user_data.username).unwrap();
                     return HttpResponse::Ok().body(format!(
-                        r#"{{"last_modified":"succesfully logged in","logged_as":{}}}"#,
+                        r#"{{"message":"succesfully logged in","logged_as":{}}}"#,
                         user_data.username
                     ));
                 }
@@ -120,13 +163,60 @@ async fn login(req_body: String, session: Session) -> impl Responder {
             }
         }
         Err(_) => {
-            return HttpResponse::InternalServerError().body(format!(
-                r#"{{"message":"server error occurred during logging in"}}"#
-            ));
+            return server_error("server error occurred during logging in");
         }
     }
 }
-
+async fn get_user_settings(session: Session) -> impl Responder {
+    let settings = DB_CLIENT
+        .get_or_init(|| async { DbClient::new().await.unwrap() })
+        .await
+        .get_settings(session.get::<String>("username").unwrap().unwrap().as_str())
+        .await;
+    match settings {
+        Ok(settings) => match settings {
+            Some(settings) => {
+                return succes(
+                    "settings",
+                    serde_json::to_string(&settings).unwrap().as_str(),
+                );
+            }
+            None => {
+                return HttpResponse::NoContent().body(format!(
+                    r#"{{"settings":{{}}, "message":"no settings found for given user"}}"#,
+                ));
+            }
+        },
+        Err(_) => server_error("server error occurred while loading user data"),
+    }
+}
+async fn set_user_settings(session: Session, req_body: String) -> impl Responder {
+    let settings = serde_json::from_str::<SettingsRequest>(&req_body);
+    match settings {
+        Ok(settings) => {
+            let settings = UserDBEntry {
+                username: session.get::<String>("username").unwrap().unwrap(),
+                settings: settings.settings,
+                settings_update_time: settings.settings_update_time,
+            };
+            let res = DB_CLIENT
+                .get_or_init(|| async { DbClient::new().await.unwrap() })
+                .await
+                .insert_user(settings)
+                .await;
+            match res {
+                Ok(_) => succes("message", "new settings was succesfully saved"),
+                Err(_) => {
+                    server_error("server error occurred while saving user data, try it again later")
+                }
+            }
+        }
+        Err(_) => {
+            return HttpResponse::BadRequest()
+                .body(format!(r#"{{"message":"invalid request body"}}"#));
+        }
+    }
+}
 //#[post("/logout")]
 async fn logout(session: Session) -> impl Responder {
     let username = session.get::<String>("username").unwrap().unwrap();
@@ -135,4 +225,10 @@ async fn logout(session: Session) -> impl Responder {
 }
 async fn unauthorized() -> impl Responder {
     return HttpResponse::Unauthorized().body(format!(r#"{{"message":"action forbiden"}}"#,));
+}
+fn server_error(message: &str) -> HttpResponse {
+    return HttpResponse::InternalServerError().body(format!(r#"{{"message":"{}"}}"#, message));
+}
+fn succes(key: &str, value: &str) -> HttpResponse {
+    return HttpResponse::Ok().body(format!(r#"{{"{}":"{}"}}"#, key, value));
 }

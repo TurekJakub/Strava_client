@@ -114,6 +114,11 @@ pub struct UserDBEntry {
     pub settings: OrdersCancelingSettings,
     pub settings_update_time: SystemTime,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SettingsRequest {
+    pub settings: OrdersCancelingSettings,
+    pub settings_update_time: SystemTime,
+}
 #[derive(Deserialize, Serialize)]
 pub struct Config {
    pub settings: HashMap<String, String>,

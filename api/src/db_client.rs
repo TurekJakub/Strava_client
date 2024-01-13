@@ -1,7 +1,7 @@
 use mongodb::options::Credential;
 use mongodb::options::{AuthMechanism, Tls, TlsOptions};
 use mongodb::{
-    bson::doc,
+    bson:: doc,
     options::ClientOptions,
     Client, Collection,
 };
@@ -9,10 +9,10 @@ use std::env;
 use std::path::PathBuf;
 use std::time::SystemTime;
 use strava_client::data_struct::{OrdersCancelingSettings, UserDBEntry};
-struct StravaClient {
+pub struct DbClient {
     client: mongodb::Client,
 }
-impl StravaClient {
+impl DbClient {
     pub async fn new() -> Result<Self, mongodb::error::Error> {
         Ok(Self {
             client: self::connect().await?,
@@ -20,7 +20,7 @@ impl StravaClient {
     }
     pub async fn get_settings_update_time(
         &self,
-        username: &String,
+        username: &str,
     ) -> Result<Option<SystemTime>, mongodb::error::Error> {
         let user = self.get_user(username).await?;
         match user {
@@ -33,7 +33,7 @@ impl StravaClient {
     }
     pub async fn get_settings(
         &self,
-        username: &String,
+        username: &str,
     ) -> Result<Option<OrdersCancelingSettings>, mongodb::error::Error> {
         let user = self.get_user(username).await?;
         match user {
@@ -55,7 +55,7 @@ impl StravaClient {
     }
     async fn get_user(
         &self,
-        username: &String,
+        username: &str,
     ) -> Result<Option<UserDBEntry>, mongodb::error::Error> {
         let collection = self.get_collection().await;
         let user = collection
@@ -91,7 +91,7 @@ impl StravaClient {
 async fn connect() -> Result<mongodb::Client, mongodb::error::Error> {
     dotenv::dotenv().ok();
     let mut client_options =
-            ClientOptions::parse("mongodb+srv://cluster0.ufzbnsx.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority").await?;
+            ClientOptions::parse(env::var("CONNECTION_STRING").unwrap()).await?;
     client_options.credential = Some(
         Credential::builder()
             .mechanism(AuthMechanism::MongoDbX509)

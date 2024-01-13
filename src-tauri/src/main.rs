@@ -1,8 +1,10 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+use std::collections::HashSet;
+
 // use dotenv::dotenv; // debug only
 use indexmap::IndexMap;
-use strava_client::data_struct::{Date, DishInfo, User};
+use strava_client::data_struct::{Date, DishInfo, User, SettingsRequest, OrdersCancelingSettings};
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
 
@@ -12,6 +14,7 @@ static mut CACHE: OnceCell<
     IndexMap<String, IndexMap<String, IndexMap<String, (bool, String, Vec<String>)>>>,
 > = OnceCell::new();
 */
+
 #[tauri::command]
 async fn get_menu_data() -> Result<(Vec<Date>, IndexMap<Date, IndexMap<String, DishInfo>>), String>
 {
@@ -70,12 +73,22 @@ async fn save_orders() -> Result<(), String> {
 }
 #[tokio::main]
 async fn main() {
-    
-    
+    let x = SettingsRequest{
+      settings: OrdersCancelingSettings{
+        balacklisted_allergens: HashSet::from([1]),
+        blacklisted_dishes: HashSet::from(["sekaná".to_owned()]),
+        strategy: "cancel".to_owned(),
+      },
+      settings_update_time: std::time::SystemTime::now(),
+    };
+    println!("{}", serde_json::to_string(&x).unwrap());
+
+    /*
     tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![get_menu_data, login, order_dish, save_orders])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
+    */
     /*
     keytar::set_password("strava_client", "username", "password").unwrap();
     keytar::set_password("strava_client", "username1", "password1").unwrap();

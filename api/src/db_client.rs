@@ -1,14 +1,10 @@
 use mongodb::options::Credential;
 use mongodb::options::{AuthMechanism, Tls, TlsOptions};
-use mongodb::{
-    bson:: doc,
-    options::ClientOptions,
-    Client, Collection,
-};
+use mongodb::{bson::doc, options::ClientOptions, Client, Collection};
 use std::env;
 use std::path::PathBuf;
 use std::time::SystemTime;
-use strava_client::data_struct::{OrdersCancelingSettings, UserDBEntry};
+use strava_client::data_struct::{CantineDBEntry, OrdersCancelingSettings, UserDBEntry};
 pub struct DbClient {
     client: mongodb::Client,
 }
@@ -53,18 +49,15 @@ impl DbClient {
             }
         }
     }
-    async fn get_user(
-        &self,
-        username: &str,
-    ) -> Result<Option<UserDBEntry>, mongodb::error::Error> {
-        let collection = self.get_collection().await;
+    async fn get_user(&self, username: &str) -> Result<Option<UserDBEntry>, mongodb::error::Error> {
+        let collection = self.get_users_collection().await;
         let user = collection
             .find_one(doc! { "username": username }, None)
-            .await?;
-        Ok(user)
+            .await;
+        user
     }
     async fn create_user(&self, user: UserDBEntry) -> Result<(), mongodb::error::Error> {
-        let collection = self.get_collection().await;
+        let collection = self.get_users_collection().await;
         collection.insert_one(user, None).await?;
         Ok(())
     }
@@ -83,15 +76,60 @@ impl DbClient {
             .await?;
         Ok(())
     }
-    async fn get_collection(&self) -> Collection<UserDBEntry> {
+    pub async fn get_cantine(
+        &self,
+        cantine_id: &i32,
+    ) -> Result<Option<CantineDBEntry>, mongodb::error::Error> {
+        let collection = self.get_cantines_collection().await;
+        let cantine = collection.find_one(doc! { "cantine_id": cantine_id }, None).await;
+        cantine
+    }
+    async fn create_cantine(&self, cantine: CantineDBEntry) -> Result<(), mongodb::error::Error> {
+        let collection = self.get_cantines_collection().await;
+        collection.insert_one(cantine, None).await?;
+        Ok(())
+    }
+    async fn update_cantine(&self, cantine: CantineDBEntry) -> Result<(), mongodb::error::Error> {
+        let database = self.client.database("strava");
+        let collection: Collection<UserDBEntry> = database.collection("cantines");
+        collection
+            .update_one(
+                doc! { "cantine_id": cantine.cantine_id },
+                doc! {
+                        "$set": doc! { "dish_history": serde_json::to_string(&cantine.dish_history).unwrap()}
+                },
+                None,
+            )
+            .await?;
+        Ok(())
+    }
+    pub async fn insert_cantine(
+        &self,
+        cantine: CantineDBEntry,
+    ) -> Result<(), mongodb::error::Error> {
+        match self.get_cantine(&cantine.cantine_id).await? {
+            Some(_) => {
+                self.update_cantine(cantine).await?;
+                Ok(())
+            }
+            None => {
+                self.create_cantine(cantine).await?;
+                Ok(())
+            }
+        }
+    }
+    async fn get_users_collection(&self) -> Collection<UserDBEntry> {
         let database = self.client.database("strava");
         database.collection("users")
+    }
+    async fn get_cantines_collection(&self) -> Collection<CantineDBEntry> {
+        let database = self.client.database("strava");
+        database.collection("cantines")
     }
 }
 async fn connect() -> Result<mongodb::Client, mongodb::error::Error> {
     dotenv::dotenv().ok();
-    let mut client_options =
-            ClientOptions::parse(env::var("CONNECTION_STRING").unwrap()).await?;
+    let mut client_options = ClientOptions::parse(env::var("CONNECTION_STRING").unwrap()).await?;
     client_options.credential = Some(
         Credential::builder()
             .mechanism(AuthMechanism::MongoDbX509)

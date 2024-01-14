@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 // use dotenv::dotenv; // debug only
 use indexmap::IndexMap;
-use strava_client::data_struct::{Date, DishInfo, User, SettingsRequest, OrdersCancelingSettings};
+use strava_client::data_struct::{Date, DishInfo, User, SettingsRequestBody, OrdersCancelingSettings};
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
 
@@ -73,7 +73,7 @@ async fn save_orders() -> Result<(), String> {
 }
 #[tokio::main]
 async fn main() {
-    let x = SettingsRequest{
+    let x = SettingsRequestBody{
       settings: OrdersCancelingSettings{
         balacklisted_allergens: HashSet::from([1]),
         blacklisted_dishes: HashSet::from(["sekaná".to_owned()]),

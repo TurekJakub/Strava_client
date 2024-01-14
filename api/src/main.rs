@@ -3,22 +3,32 @@ use actix_web::cookie::Key;
 
 use actix_web::{
     guard::{fn_guard, Any, Get, GuardContext, Not, Post},
-    post, web, App, HttpResponse, HttpServer, Responder,
+    post,
+    web::{get, post, resource, route, Path},
+    App, HttpResponse, HttpServer, Responder,
 };
 use std::collections::HashMap;
 use std::env;
 
 use db_client::DbClient;
-use strava_client::data_struct::{Config, SettingsRequest, User, UserDBEntry};
+use strava_client::data_struct::{
+    Config, OrderDishRequestBody, SettingsRequestBody, User, UserDBEntry, CantineDBEntry,
+};
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
+use std::collections::HashSet;
+mod db_client;
 
 static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
 static DB_CLIENT: OnceCell<DbClient> = OnceCell::const_new();
-mod db_client;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let x = CantineDBEntry {
+        cantine_id: 0000,
+        dish_history: HashSet::from(["sekaná".to_owned(), "guláš".to_owned(), "knedlo vepřo zelo".to_owned()])
+    };
+    DB_CLIENT.get_or_init(|| async { DbClient::new().await.unwrap() }).await.insert_cantine(x).await.unwrap();
     dotenv::dotenv().ok();
     let secret_key = Key::generate();
     HttpServer::new(move || {
@@ -31,71 +41,108 @@ async fn main() -> std::io::Result<()> {
                     .build(),
             )
             .service(
-                web::resource("/settings_update_time")
+                resource("/login")
+                    .route(route().guard(Post()).to(login))
                     .route(
-                        web::route()
-                            .guard(Post())
-                            .guard(fn_guard(route_guard))
-                            .to(update_time),
-                    )
-                    .route(
-                        web::route()
+                        route()
                             .guard(Not(Post()))
                             .to(|| HttpResponse::MethodNotAllowed()),
-                    )
-                    .default_service(web::route().to(unauthorized)),
+                    ),
             )
-            .service(login)
             .service(
-                web::resource("/logout")
+                resource("/logout")
                     .route(
-                        web::route()
-                            .guard(fn_guard(route_guard))
+                        route()
+                            .guard(fn_guard(authorized_guard))
                             .guard(Post())
                             .to(logout),
                     )
-                    .default_service(web::route().to(unauthorized)),
-            )
-            .service(
-                web::resource("/user_menu")
                     .route(
-                        web::route()
-                            .guard(fn_guard(route_guard))
-                            .guard(Post())
-                            .to(get_user_menu),
+                        route()
+                            .guard(Not(Post()))
+                            .to(|| HttpResponse::MethodNotAllowed()),
                     )
-                    .default_service(web::route().to(unauthorized)),
+                    .default_service(route().to(unauthorized)),
             )
             .service(
-                web::resource("/user_settings")
+                resource("/settings_update_time")
                     .route(
-                        web::post()
-                            .guard(fn_guard(route_guard))
+                        route()
+                            .guard(Post())
+                            .guard(fn_guard(authorized_guard))
+                            .to(update_time),
+                    )
+                    .route(
+                        route()
+                            .guard(Not(Post()))
+                            .to(|| HttpResponse::MethodNotAllowed()),
+                    )
+                    .default_service(route().to(unauthorized)),
+            )
+            .service(
+                resource("/user_menu")
+                    .route(get().guard(fn_guard(authorized_guard)).to(get_user_menu))
+                    .route(
+                        route()
+                            .guard(Not(Get()))
+                            .to(|| HttpResponse::MethodNotAllowed()),
+                    )
+                    .default_service(route().to(unauthorized)),
+            )
+            .service(
+                resource("/user_settings")
+                    .route(
+                        post()
+                            .guard(fn_guard(authorized_guard))
                             .to(set_user_settings),
                     )
                     .route(
-                        web::get()
-                            .guard(fn_guard(route_guard))
+                        get()
+                            .guard(fn_guard(authorized_guard))
                             .to(get_user_settings),
                     )
                     .route(
-                        web::route()
+                        route()
                             .guard(Any(Not(Get())).or(Not(Post())))
                             .to(|| HttpResponse::MethodNotAllowed()),
                     )
-                    .default_service(web::route().to(unauthorized)),
+                    .default_service(route().to(unauthorized)),
+            )
+            .service(
+                resource("/order_dish")
+                    .route(post().guard(fn_guard(authorized_guard)).to(order_dish))
+                    .route(
+                        route()
+                            .guard(Not(Post()))
+                            .to(|| HttpResponse::MethodNotAllowed()),
+                    )
+                    .default_service(route().to(unauthorized)),
+            )
+            .service(
+                resource("/save_orders")
+                    .route(post().guard(fn_guard(authorized_guard)).to(save_orders))
+                    .route(
+                        route()
+                            .guard(Not(Post()))
+                            .to(|| HttpResponse::MethodNotAllowed()),
+                    )
+                    .default_service(route().to(unauthorized)),
+            )
+            .service(
+                resource("/cantine_history/{cantine_id}")
+                    .route(get().to(get_cantine_history))                           
             )
     })
     .bind((
-        env::var("IP_ADRESS").unwrap(),
+        env::var("IP_ADDRESS").unwrap(),
         env::var("PORT").unwrap().parse().unwrap(),
     ))?
     .run()
     .await
 }
 
-fn route_guard(x: &GuardContext) -> bool {
-    match x.get_session().get::<String>("username") {
+fn authorized_guard(context: &GuardContext) -> bool {
+    match context.get_session().get::<String>("username") {
         Ok(Some(_)) => {
             return true;
         }
@@ -132,7 +179,6 @@ async fn get_user_menu() -> impl Responder {
         serde_json::to_string(&menu).unwrap()
     ));
 }
-#[post("/login")]
 async fn login(req_body: String, session: Session) -> impl Responder {
     match serde_json::from_str::<User<'_>>(&req_body) {
         Ok(user_data) => {
@@ -182,16 +228,14 @@ async fn get_user_settings(session: Session) -> impl Responder {
                 );
             }
             None => {
-                return HttpResponse::NoContent().body(format!(
-                    r#"{{"settings":{{}}, "message":"no settings found for given user"}}"#,
-                ));
+                return HttpResponse::NoContent().finish();
             }
         },
         Err(_) => server_error("server error occurred while loading user data"),
     }
 }
 async fn set_user_settings(session: Session, req_body: String) -> impl Responder {
-    let settings = serde_json::from_str::<SettingsRequest>(&req_body);
+    let settings = serde_json::from_str::<SettingsRequestBody>(&req_body);
     match settings {
         Ok(settings) => {
             let settings = UserDBEntry {
@@ -217,7 +261,59 @@ async fn set_user_settings(session: Session, req_body: String) -> impl Responder
         }
     }
 }
-//#[post("/logout")]
+async fn order_dish(req_body: String) -> impl Responder {
+    match serde_json::from_str::<OrderDishRequestBody>(req_body.as_str()) {
+        Ok(dish_info) => {
+            match CLIENT
+                .get()
+                .unwrap()
+                .order_dish(dish_info.dish_id, dish_info.ordered)
+                .await
+            {
+                Ok(_) => {
+                    return succes("message", "dish was succesfully ordered");
+                }
+                Err(_) => {
+                    return server_error("server error occurred while ordering dish");
+                }
+            }
+        }
+        Err(_) => {
+            return HttpResponse::BadRequest()
+                .body(format!(r#"{{"message":"invalid request body"}}"#));
+        }
+    }
+}
+async fn save_orders() -> impl Responder {
+    match CLIENT.get().unwrap().save_orders().await {
+        Ok(_) => {
+            return succes("message", "orders was succesfully saved");
+        }
+        Err(_) => {
+            return server_error("server error occurred while saving orders");
+        }
+    }
+}
+async fn get_cantine_history(path: Path<i32>) -> impl Responder {
+    let cantine_id = path.into_inner();
+    let history = DB_CLIENT
+        .get_or_init(|| async { DbClient::new().await.unwrap() })
+        .await
+        .get_cantine(&cantine_id)
+        .await;
+    match history {
+        Ok(history) => match history {
+            Some(history) => succes(
+                "cantine_history",
+                serde_json::to_string(&history).unwrap().as_str(),
+            ),
+            None => {
+                return HttpResponse::NoContent().finish();
+            }
+        },
+        Err(_) => server_error("server error occurred while loading cantine data"),
+    }
+}
 async fn logout(session: Session) -> impl Responder {
     let username = session.get::<String>("username").unwrap().unwrap();
     session.purge();

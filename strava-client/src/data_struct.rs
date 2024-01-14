@@ -103,23 +103,34 @@ pub struct DishInfo {
     pub order_state: bool,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OrdersCancelingSettings{
+pub struct OrdersCancelingSettings {
     pub blacklisted_dishes: HashSet<String>,
     pub balacklisted_allergens: HashSet<u8>,
     pub strategy: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserDBEntry {
-    pub username: String,  
+    pub username: String,
     pub settings: OrdersCancelingSettings,
     pub settings_update_time: SystemTime,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SettingsRequest {
+#[derive(Serialize, Deserialize)]
+pub struct CantineDBEntry {
+    pub cantine_id: i32,
+    pub dish_history: HashSet<String>,
+}
+#[derive(Serialize, Deserialize)]
+pub struct SettingsRequestBody {
     pub settings: OrdersCancelingSettings,
     pub settings_update_time: SystemTime,
+}
+#[derive(Serialize, Deserialize)]
+
+pub struct OrderDishRequestBody {
+    pub dish_id: String,
+    pub ordered: bool,
 }
 #[derive(Deserialize, Serialize)]
 pub struct Config {
-   pub settings: HashMap<String, String>,
+    pub settings: HashMap<String, String>,
 }

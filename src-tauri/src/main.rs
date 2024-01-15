@@ -75,8 +75,8 @@ async fn save_orders() -> Result<(), String> {
 async fn main() {
     let x = SettingsRequestBody{
       settings: OrdersCancelingSettings{
-        balacklisted_allergens: HashSet::from([1]),
-        blacklisted_dishes: HashSet::from(["sekaná".to_owned()]),
+        balacklisted_allergens: Vec::from([1]),
+        blacklisted_dishes: Vec::from(["sekaná".to_owned()]),
         strategy: "cancel".to_owned(),
       },
       settings_update_time: std::time::SystemTime::now(),

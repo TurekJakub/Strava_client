@@ -1,3 +1,4 @@
+use mongodb::bson::{to_bson, Bson};
 use mongodb::options::Credential;
 use mongodb::options::{AuthMechanism, Tls, TlsOptions};
 use mongodb::{bson::doc, options::ClientOptions, Client, Collection};
@@ -78,7 +79,7 @@ impl DbClient {
     }
     pub async fn get_cantine(
         &self,
-        cantine_id: &i32,
+        cantine_id: &String,
     ) -> Result<Option<CantineDBEntry>, mongodb::error::Error> {
         let collection = self.get_cantines_collection().await;
         let cantine = collection.find_one(doc! { "cantine_id": cantine_id }, None).await;
@@ -96,7 +97,7 @@ impl DbClient {
             .update_one(
                 doc! { "cantine_id": cantine.cantine_id },
                 doc! {
-                        "$set": doc! { "dish_history": serde_json::to_string(&cantine.dish_history).unwrap()}
+                        "$set": doc! { "dish_history": cantine.dish_history }
                 },
                 None,
             )

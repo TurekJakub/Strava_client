@@ -85,73 +85,11 @@ impl RequestBuilder {
         {
             Ok(res) => match res.error_for_status() {
                 Ok(res) => {
-                    let mut menu = IndexMap::new();
-                    let response_json =
+                    let response_json: serde_json::Value =
                         serde_json::from_str::<serde_json::Value>(&res.text().await.unwrap())
                             .unwrap();
-                    let menu_json = response_json.as_object().unwrap();
-                    for key in menu_json.keys() {
-                        let daily_menu_json = menu_json.get(key).unwrap().as_array().unwrap();
-                        let mut daily_menu = IndexMap::new();
-                        for dish in daily_menu_json {
-                            let dish_name = format!(
-                                "{} - {}",
-                                dish.get("popis")
-                                    .unwrap()
-                                    .as_str()
-                                    .unwrap()
-                                    .trim()
-                                    .to_string(),
-                                dish.get("nazev")
-                                    .unwrap()
-                                    .as_str()
-                                    .unwrap()
-                                    .trim()
-                                    .to_string()
-                            )
-                            .trim()
-                            .to_string();
-                            let allergens: Vec<String> = dish
-                                .get("alergeny")
-                                .unwrap()
-                                .as_array()
-                                .unwrap()
-                                .into_iter()
-                                .map(|f| {
-                                    f.as_array()
-                                        .unwrap()
-                                        .get(0)
-                                        .unwrap()
-                                        .as_str()
-                                        .unwrap()
-                                        .to_string()
-                                })
-                                .collect();
-                            daily_menu.insert(
-                                dish_name,
-                                DishInfo {
-                                    order_state: dish.get("pocet").unwrap().as_i64().unwrap() == 1,
-                                    id: dish.get("veta").unwrap().as_str().unwrap().to_string(),
-                                    allergens: allergens,
-                                },
-                            );
-                        }
-                        menu.insert(
-                            Date::new(
-                                daily_menu_json
-                                    .get(0)
-                                    .unwrap()
-                                    .get("datum")
-                                    .unwrap()
-                                    .as_str()
-                                    .unwrap()
-                                    .to_string(),
-                            ),
-                            daily_menu,
-                        );
-                    }
-                    menu.sort_keys();
-                    Ok(menu)
+
+                    Ok(self::parse_menu(response_json))
                 }
                 Err(e) => return Err(e.to_string()),
             },
@@ -249,4 +187,70 @@ impl RequestBuilder {
             Err(e) => Err(e),
         }
     }
+}
+pub fn parse_menu(menu_string: serde_json::Value) -> IndexMap<Date, IndexMap<String, DishInfo>> {
+    let mut menu = IndexMap::new();
+    let menu_json = menu_string.as_object().unwrap();
+    for key in menu_json.keys() {
+        let daily_menu_json = menu_json.get(key).unwrap().as_array().unwrap();
+        let mut daily_menu = IndexMap::new();
+        for dish in daily_menu_json {
+            let dish_name = format!(
+                "{} - {}",
+                dish.get("popis")
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .trim()
+                    .to_string(),
+                dish.get("nazev")
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .trim()
+                    .to_string()
+            )
+            .trim()
+            .to_string();
+            let allergens: Vec<String> = dish
+                .get("alergeny")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .into_iter()
+                .map(|f| {
+                    f.as_array()
+                        .unwrap()
+                        .get(0)
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                        .to_string()
+                })
+                .collect();
+            daily_menu.insert(
+                dish_name,
+                DishInfo {
+                    order_state: dish.get("pocet").unwrap().as_i64().unwrap() == 1,
+                    id: dish.get("veta").unwrap().as_str().unwrap().to_string(),
+                    allergens: allergens,
+                },
+            );
+        }
+        menu.insert(
+            Date::new(
+                daily_menu_json
+                    .get(0)
+                    .unwrap()
+                    .get("datum")
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .to_string(),
+            ),
+            daily_menu,
+        );
+    }
+    menu.sort_keys();
+    menu
 }

@@ -14,4 +14,7 @@ serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 strava-client = {path = "../strava-client"}
 dotenv = "0.15.0"
+reqwest = { version = "0.11.4", features = ["json","cookies", "gzip", "deflate"] }
+indexmap = "2.1.0"
+
 

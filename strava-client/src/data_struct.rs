@@ -104,8 +104,8 @@ pub struct DishInfo {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrdersCancelingSettings {
-    pub blacklisted_dishes: HashSet<String>,
-    pub balacklisted_allergens: HashSet<u8>,
+    pub blacklisted_dishes: Vec<String>,
+    pub balacklisted_allergens: Vec<u8>,
     pub strategy: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -116,8 +116,23 @@ pub struct UserDBEntry {
 }
 #[derive(Serialize, Deserialize)]
 pub struct CantineDBEntry {
-    pub cantine_id: i32,
-    pub dish_history: HashSet<String>,
+    pub cantine_id: String,
+    pub dish_history: Vec<String>,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Cantine {
+    pub id: String,
+    pub name: String,
+    pub city: String,
+    pub street: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+
+pub struct CantineData {
+    pub v_mesto: Vec<String>,
+    pub v_ulice: Vec<String>,
+    pub v_nazev: Vec<String>,
+    pub zarizeni: Vec<String>,
 }
 #[derive(Serialize, Deserialize)]
 pub struct SettingsRequestBody {

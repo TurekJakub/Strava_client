@@ -17,6 +17,9 @@ use strava_client::data_struct::{
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
 use std::collections::HashSet;
+
+use crate::crawler::Crawler;
+mod crawler;
 mod db_client;
 
 static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
@@ -25,9 +28,11 @@ static DB_CLIENT: OnceCell<DbClient> = OnceCell::const_new();
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let x = CantineDBEntry {
-        cantine_id: 0000,
-        dish_history: HashSet::from(["sekaná".to_owned(), "guláš".to_owned(), "knedlo vepřo zelo".to_owned()])
+        cantine_id: "0000".to_string(),
+        dish_history: ["sekaná".to_owned(), "guláš".to_owned(), "knedlo vepřo zelo".to_owned(),"pizza".to_owned()].to_vec(),
     };
+    let xx = Crawler::new().get_cantines().await.unwrap();
+    println!("{:?}",xx);
     DB_CLIENT.get_or_init(|| async { DbClient::new().await.unwrap() }).await.insert_cantine(x).await.unwrap();
     dotenv::dotenv().ok();
     let secret_key = Key::generate();
@@ -294,7 +299,7 @@ async fn save_orders() -> impl Responder {
         }
     }
 }
-async fn get_cantine_history(path: Path<i32>) -> impl Responder {
+async fn get_cantine_history(path: Path<String>) -> impl Responder {
     let cantine_id = path.into_inner();
     let history = DB_CLIENT
         .get_or_init(|| async { DbClient::new().await.unwrap() })

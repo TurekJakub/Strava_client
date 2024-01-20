@@ -27,8 +27,8 @@ url = "2.4.1"
 toml = "0.8.8"
 dotenv = "0.15.0"
 keytar = "0.1.6"
+bson = "2.8.1"
 strava-client = { path = "../strava-client" }
-
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

@@ -1,11 +1,15 @@
+use bson::oid::ObjectId;
 use mongodb::bson::{to_bson, Bson};
-use mongodb::options::Credential;
 use mongodb::options::{AuthMechanism, Tls, TlsOptions};
+use mongodb::options::{Credential, UpdateOptions};
 use mongodb::{bson::doc, options::ClientOptions, Client, Collection};
 use std::env;
 use std::path::PathBuf;
 use std::time::SystemTime;
-use strava_client::data_struct::{CantineDBEntry, OrdersCancelingSettings, UserDBEntry};
+use strava_client::data_struct::{
+    CantineDBEntry, DishDBEntry, OrdersCancelingSettings, UserDBEntry,
+};
+
 pub struct DbClient {
     client: mongodb::Client,
 }
@@ -82,7 +86,9 @@ impl DbClient {
         cantine_id: &String,
     ) -> Result<Option<CantineDBEntry>, mongodb::error::Error> {
         let collection = self.get_cantines_collection().await;
-        let cantine = collection.find_one(doc! { "cantine_id": cantine_id }, None).await;
+        let cantine = collection
+            .find_one(doc! { "cantine_id": cantine_id }, None)
+            .await;
         cantine
     }
     async fn create_cantine(&self, cantine: CantineDBEntry) -> Result<(), mongodb::error::Error> {
@@ -90,14 +96,14 @@ impl DbClient {
         collection.insert_one(cantine, None).await?;
         Ok(())
     }
-    async fn update_cantine(&self, cantine: CantineDBEntry) -> Result<(), mongodb::error::Error> {
+    pub async fn update_cantine(&self, cantine_id: &str, cantine_history:Vec<ObjectId>) -> Result<(), mongodb::error::Error> {
         let database = self.client.database("strava");
         let collection: Collection<UserDBEntry> = database.collection("cantines");
         collection
             .update_one(
-                doc! { "cantine_id": cantine.cantine_id },
+                doc! { "cantine_id": cantine_id },
                 doc! {
-                        "$set": doc! { "dish_history": cantine.dish_history }
+                        "$set": doc! { "dish_history": cantine_history }
                 },
                 None,
             )
@@ -110,7 +116,7 @@ impl DbClient {
     ) -> Result<(), mongodb::error::Error> {
         match self.get_cantine(&cantine.cantine_id).await? {
             Some(_) => {
-                self.update_cantine(cantine).await?;
+                self.update_cantine(cantine.cantine_id.as_str(),cantine.cantine_history).await?;
                 Ok(())
             }
             None => {
@@ -119,6 +125,38 @@ impl DbClient {
             }
         }
     }
+    pub async fn insert_dish(
+        &self,
+        dish: DishDBEntry,
+    ) -> Result<Option<ObjectId>, mongodb::error::Error> {
+        let collection = self.get_dishes_collection().await;
+        let options = UpdateOptions::builder().upsert(true).build();
+        let res = collection
+            .update_one(
+                doc! {"name": dish.name.clone(), "allergens":dish.allergens.clone()},
+                doc! { "$setOnInsert": doc!{"name":dish.name, "allergens":dish.allergens}},
+                options,
+            )
+            .await?;
+        match res.upserted_id {
+            Some(id) => Ok(Some(id.as_object_id().unwrap())),
+            None => Ok(None),
+            
+        }
+    }
+    pub async fn insert_dishes(
+        &self,
+        dishes: Vec<DishDBEntry>,
+    ) -> Result<Vec<ObjectId>, mongodb::error::Error> {
+        let mut updated = Vec::new();
+        for dish in dishes {
+            match self.insert_dish(dish).await? {
+                Some(id) => updated.push(id),
+                None => continue,
+            }
+        }
+        Ok(updated)
+    }
     async fn get_users_collection(&self) -> Collection<UserDBEntry> {
         let database = self.client.database("strava");
         database.collection("users")
@@ -126,6 +164,10 @@ impl DbClient {
     async fn get_cantines_collection(&self) -> Collection<CantineDBEntry> {
         let database = self.client.database("strava");
         database.collection("cantines")
+    }
+    async fn get_dishes_collection(&self) -> Collection<DishDBEntry> {
+        let database = self.client.database("strava");
+        database.collection("dishes")
     }
 }
 async fn connect() -> Result<mongodb::Client, mongodb::error::Error> {

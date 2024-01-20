@@ -11,12 +11,12 @@ use std::collections::HashMap;
 use std::env;
 
 use db_client::DbClient;
+use std::collections::HashSet;
 use strava_client::data_struct::{
-    Config, OrderDishRequestBody, SettingsRequestBody, User, UserDBEntry, CantineDBEntry,
+    CantineDBEntry, Config, OrderDishRequestBody, SettingsRequestBody, User, UserDBEntry,
 };
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
-use std::collections::HashSet;
 
 use crate::crawler::Crawler;
 mod crawler;
@@ -27,13 +27,26 @@ static DB_CLIENT: OnceCell<DbClient> = OnceCell::const_new();
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let x = CantineDBEntry {
-        cantine_id: "0000".to_string(),
-        dish_history: ["sekaná".to_owned(), "guláš".to_owned(), "knedlo vepřo zelo".to_owned(),"pizza".to_owned()].to_vec(),
-    };
-    let xx = Crawler::new().get_cantines().await.unwrap();
-    println!("{:?}",xx);
-    DB_CLIENT.get_or_init(|| async { DbClient::new().await.unwrap() }).await.insert_cantine(x).await.unwrap();
+    let xx = Crawler::new().get_cantine_menu("5763").await.unwrap();
+    let x = xx.get(1).unwrap().clone();
+    println!("{:?}", xx);
+
+    let xy = DB_CLIENT
+        .get_or_init(|| async { DbClient::new().await.unwrap() })
+        .await
+        .insert_dishes(xx)
+        .await
+        .unwrap();
+    DB_CLIENT
+        .get()
+        .unwrap()
+        .insert_cantine(CantineDBEntry {
+            cantine_id: "5763".to_owned(),
+            name: "Arabská".to_owned(),
+            cantine_history: xy,
+        })
+        .await
+        .unwrap();
     dotenv::dotenv().ok();
     let secret_key = Key::generate();
     HttpServer::new(move || {
@@ -133,10 +146,7 @@ async fn main() -> std::io::Result<()> {
                     )
                     .default_service(route().to(unauthorized)),
             )
-            .service(
-                resource("/cantine_history/{cantine_id}")
-                    .route(get().to(get_cantine_history))                           
-            )
+            .service(resource("/cantine_history/{cantine_id}").route(get().to(get_cantine_history)))
     })
     .bind((
         env::var("IP_ADDRESS").unwrap(),

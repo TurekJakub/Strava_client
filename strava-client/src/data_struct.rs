@@ -1,3 +1,4 @@
+use bson::oid::ObjectId;
 use chrono::prelude::*;
 use serde::Deserialize;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
@@ -96,6 +97,7 @@ impl Serialize for User<'_> {
     }
 }
 // structure representing information about dish
+
 #[derive(Clone, Debug, Serialize)]
 pub struct DishInfo {
     pub id: String,
@@ -117,14 +119,18 @@ pub struct UserDBEntry {
 #[derive(Serialize, Deserialize)]
 pub struct CantineDBEntry {
     pub cantine_id: String,
-    pub dish_history: Vec<String>,
+    pub name: String,
+    pub cantine_history: Vec<ObjectId>,
+}
+#[derive(Serialize, Deserialize, Debug,Clone)]
+pub struct DishDBEntry {
+    pub name: String,
+    pub allergens: Vec<String>,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Cantine {
     pub id: String,
     pub name: String,
-    pub city: String,
-    pub street: String,
 }
 #[derive(Serialize, Deserialize, Debug)]
 

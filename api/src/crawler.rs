@@ -1,8 +1,9 @@
-use reqwest::{Client, Error};
 use indexmap::IndexMap;
-use strava_client::data_struct::{Cantine, CantineDBEntry, CantineData,Date,
-    DishInfo, OrdersCancelingSettings, UserDBEntry}; 
-use strava_client::request_builder::parse_menu;
+use reqwest::{Client, Error};
+use strava_client::data_struct::{
+    Cantine, CantineDBEntry, CantineData, Date, DishDBEntry, DishInfo, OrdersCancelingSettings,
+    UserDBEntry,
+};
 pub struct Crawler {
     client: reqwest::Client,
 }
@@ -36,17 +37,20 @@ impl Crawler {
         for cantine in cantines_data {
             cantines.push(Cantine {
                 id: cantine.zarizeni.get(0).unwrap().clone(),
-                name: cantine.v_nazev.get(0).unwrap().clone(),
-                city: cantine.v_mesto.get(0).unwrap().clone(),
-                street: cantine.v_ulice.get(0).unwrap().clone(),
+                name: format!(
+                    "{}, {}, {}",
+                    cantine.v_nazev.get(0).unwrap().clone(),
+                    cantine.v_mesto.get(0).unwrap().clone(),
+                    cantine.v_ulice.get(0).unwrap().clone()
+                ),
             })
         }
         Ok(cantines)
     }
-    pub async fn get_cantine_menu(&self, cantine_id: &String) -> Result<IndexMap<Date, IndexMap<String, DishInfo>>, String> {
+    pub async fn get_cantine_menu(&self, cantine_id: &str) -> Result<Vec<DishDBEntry>, String> {
         let res_text = match self
             .client
-            .post("https:/app.strava.cz/api/menu")
+            .post("https://app.strava.cz/api/jidelnicky")
             .body(format!(r#"{{"cislo": "{}", "s5url": "https://wss52.strava.cz/WSStravne5_7/WSStravne5.svc","lang":"CZ","ignoreCert":false }}"#, cantine_id))
             .send()
             .await
@@ -58,10 +62,37 @@ impl Crawler {
 
             Err(_) => return Err("Failed to get cantine menu".to_string()),
         };
-        let cantine_menu:serde_json::Value  = match serde_json::from_str(&res_text) {
+        println!("{}", res_text);
+        let cantine_menu: serde_json::Value = match serde_json::from_str(&res_text) {
             Ok(cantine_menu) => cantine_menu,
             Err(_) => return Err("Failed to parse cantine menu".to_string()),
         };
-        Ok(parse_menu(cantine_menu))
+
+        Ok(parse_cantine_menu(cantine_menu))
     }
+}
+fn parse_cantine_menu(cantine_menu: serde_json::Value) -> Vec<DishDBEntry> {
+    let mut menu = Vec::new();
+    for (day, dishes) in cantine_menu.as_object().unwrap() {
+        for dish in dishes.as_array().unwrap() {
+            let mut allergens = Vec::new();
+            for allergen in dish.get("alergeny").unwrap().as_array().unwrap() {
+                allergens.push(
+                    allergen
+                        .as_array()
+                        .unwrap()
+                        .get(0)
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                        .to_string(),
+                );
+            }
+            menu.push(DishDBEntry {
+                name: dish.get("nazev").unwrap().as_str().unwrap().to_string(),
+                allergens: allergens,
+            })
+        }
+    }
+    menu
 }

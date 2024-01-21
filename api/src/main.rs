@@ -7,8 +7,10 @@ use actix_web::{
     web::{get, post, resource, route, Path},
     App, HttpResponse, HttpServer, Responder,
 };
+use bson::oid::ObjectId;
 use std::collections::HashMap;
 use std::env;
+use std::str::FromStr;
 
 use db_client::DbClient;
 use std::collections::HashSet;
@@ -25,135 +27,118 @@ mod db_client;
 static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
 static DB_CLIENT: OnceCell<DbClient> = OnceCell::const_new();
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    let xx = Crawler::new().get_cantine_menu("5763").await.unwrap();
-    let x = xx.get(1).unwrap().clone();
-    println!("{:?}", xx);
-
-    let xy = DB_CLIENT
-        .get_or_init(|| async { DbClient::new().await.unwrap() })
-        .await
-        .insert_dishes(xx)
-        .await
-        .unwrap();
-    DB_CLIENT
-        .get()
-        .unwrap()
-        .insert_cantine(CantineDBEntry {
-            cantine_id: "5763".to_owned(),
-            name: "Arabská".to_owned(),
-            cantine_history: xy,
-        })
-        .await
-        .unwrap();
+#[tokio::main]
+async fn main() {
+    crawler::Crawler::new().await.unwrap().update_cantines_history().await.unwrap();
+    /*
     dotenv::dotenv().ok();
     let secret_key = Key::generate();
     HttpServer::new(move || {
         App::new()
-            .wrap(
-                SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
-                    .cookie_http_only(true)
-                    .cookie_same_site(actix_web::cookie::SameSite::None)
-                    .cookie_secure(false)
-                    .build(),
+        .wrap(
+            SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
+            .cookie_http_only(true)
+            .cookie_same_site(actix_web::cookie::SameSite::None)
+            .cookie_secure(false)
+            .build(),
+        )
+        .service(
+            resource("/login")
+            .route(route().guard(Post()).to(login))
+            .route(
+                route()
+                .guard(Not(Post()))
+                .to(|| HttpResponse::MethodNotAllowed()),
+            ),
+        )
+        .service(
+            resource("/logout")
+            .route(
+                route()
+                .guard(fn_guard(authorized_guard))
+                .guard(Post())
+                .to(logout),
             )
-            .service(
-                resource("/login")
-                    .route(route().guard(Post()).to(login))
-                    .route(
-                        route()
+            .route(
+                route()
+                .guard(Not(Post()))
+                .to(|| HttpResponse::MethodNotAllowed()),
+            )
+            .default_service(route().to(unauthorized)),
+        )
+        .service(
+            resource("/settings_update_time")
+            .route(
+                route()
+                .guard(Post())
+                .guard(fn_guard(authorized_guard))
+                .to(update_time),
+            )
+            .route(
+                route()
                             .guard(Not(Post()))
                             .to(|| HttpResponse::MethodNotAllowed()),
-                    ),
-            )
-            .service(
-                resource("/logout")
-                    .route(
-                        route()
-                            .guard(fn_guard(authorized_guard))
-                            .guard(Post())
-                            .to(logout),
+                        )
+                        .default_service(route().to(unauthorized)),
                     )
-                    .route(
-                        route()
-                            .guard(Not(Post()))
-                            .to(|| HttpResponse::MethodNotAllowed()),
-                    )
-                    .default_service(route().to(unauthorized)),
-            )
-            .service(
-                resource("/settings_update_time")
-                    .route(
-                        route()
-                            .guard(Post())
-                            .guard(fn_guard(authorized_guard))
-                            .to(update_time),
-                    )
-                    .route(
-                        route()
-                            .guard(Not(Post()))
-                            .to(|| HttpResponse::MethodNotAllowed()),
-                    )
-                    .default_service(route().to(unauthorized)),
-            )
-            .service(
-                resource("/user_menu")
-                    .route(get().guard(fn_guard(authorized_guard)).to(get_user_menu))
-                    .route(
-                        route()
+                    .service(
+                        resource("/user_menu")
+                        .route(get().guard(fn_guard(authorized_guard)).to(get_user_menu))
+                        .route(
+                            route()
                             .guard(Not(Get()))
                             .to(|| HttpResponse::MethodNotAllowed()),
+                        )
+                        .default_service(route().to(unauthorized)),
                     )
-                    .default_service(route().to(unauthorized)),
-            )
-            .service(
-                resource("/user_settings")
-                    .route(
-                        post()
+                    .service(
+                        resource("/user_settings")
+                        .route(
+                            post()
                             .guard(fn_guard(authorized_guard))
                             .to(set_user_settings),
-                    )
-                    .route(
-                        get()
+                        )
+                        .route(
+                            get()
                             .guard(fn_guard(authorized_guard))
                             .to(get_user_settings),
-                    )
-                    .route(
-                        route()
+                        )
+                        .route(
+                            route()
                             .guard(Any(Not(Get())).or(Not(Post())))
                             .to(|| HttpResponse::MethodNotAllowed()),
+                        )
+                        .default_service(route().to(unauthorized)),
                     )
-                    .default_service(route().to(unauthorized)),
-            )
-            .service(
-                resource("/order_dish")
-                    .route(post().guard(fn_guard(authorized_guard)).to(order_dish))
-                    .route(
-                        route()
+                    .service(
+                        resource("/order_dish")
+                        .route(post().guard(fn_guard(authorized_guard)).to(order_dish))
+                        .route(
+                            route()
                             .guard(Not(Post()))
                             .to(|| HttpResponse::MethodNotAllowed()),
+                        )
+                        .default_service(route().to(unauthorized)),
                     )
-                    .default_service(route().to(unauthorized)),
-            )
-            .service(
-                resource("/save_orders")
-                    .route(post().guard(fn_guard(authorized_guard)).to(save_orders))
-                    .route(
-                        route()
+                    .service(
+                        resource("/save_orders")
+                        .route(post().guard(fn_guard(authorized_guard)).to(save_orders))
+                        .route(
+                            route()
                             .guard(Not(Post()))
                             .to(|| HttpResponse::MethodNotAllowed()),
+                        )
+                        .default_service(route().to(unauthorized)),
                     )
-                    .default_service(route().to(unauthorized)),
-            )
-            .service(resource("/cantine_history/{cantine_id}").route(get().to(get_cantine_history)))
-    })
+                    .service(resource("/cantine_history/{cantine_id}").route(get().to(get_cantine_history)))
+                })
     .bind((
         env::var("IP_ADDRESS").unwrap(),
         env::var("PORT").unwrap().parse().unwrap(),
     ))?
     .run()
     .await
+    */
 }
 
 fn authorized_guard(context: &GuardContext) -> bool {

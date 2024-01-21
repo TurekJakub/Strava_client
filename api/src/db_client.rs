@@ -1,10 +1,13 @@
 use bson::oid::ObjectId;
-use mongodb::bson::{to_bson, Bson};
+use futures_util::stream::StreamExt;
+use mongodb::bson::{to_bson, Bson, Document};
 use mongodb::options::{AuthMechanism, Tls, TlsOptions};
 use mongodb::options::{Credential, UpdateOptions};
 use mongodb::{bson::doc, options::ClientOptions, Client, Collection};
+use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::time::SystemTime;
 use strava_client::data_struct::{
     CantineDBEntry, DishDBEntry, OrdersCancelingSettings, UserDBEntry,
@@ -96,19 +99,50 @@ impl DbClient {
         collection.insert_one(cantine, None).await?;
         Ok(())
     }
-    pub async fn update_cantine(&self, cantine_id: &str, cantine_history:Vec<ObjectId>) -> Result<(), mongodb::error::Error> {
-        let database = self.client.database("strava");
-        let collection: Collection<UserDBEntry> = database.collection("cantines");
-        collection
-            .update_one(
-                doc! { "cantine_id": cantine_id },
-                doc! {
-                        "$set": doc! { "dish_history": cantine_history }
-                },
+    pub async fn update_cantine(
+        &self,
+        cantine_id: &str,
+        cantine_history: Vec<ObjectId>,
+    ) -> Result<(), mongodb::error::Error> {
+        let collection = self.get_cantines_collection().await;
+        let mut result = collection
+            .aggregate(
+                [
+                    doc! {
+                       "$match": doc!{
+                           "cantine_id": cantine_id
+                        }
+                    },
+                    doc! {
+                        "$project":  doc!{
+                            "cantine_id": "$cantine_id",
+                            "name": "$name",
+                            "cantine_history": doc!{
+                                "$setUnion": [
+                                    "$cantine_history",
+                                       cantine_history
+                                        ]
+                                    }
+                        }
+                    },
+                ],
                 None,
             )
             .await?;
-        Ok(())
+         match result.next().await  {
+            Some(doc) => { let doc: CantineDBEntry  =bson::from_document(doc?)?;
+                collection.update_one(
+                    doc! { "cantine_id": cantine_id },
+                    doc! {
+                            "$set": doc! { "cantine_history": doc.cantine_history }
+                    },
+                    None,
+                ).await?;
+                Ok(())
+            }
+            None => Ok(())
+        }
+       
     }
     pub async fn insert_cantine(
         &self,
@@ -116,7 +150,8 @@ impl DbClient {
     ) -> Result<(), mongodb::error::Error> {
         match self.get_cantine(&cantine.cantine_id).await? {
             Some(_) => {
-                self.update_cantine(cantine.cantine_id.as_str(),cantine.cantine_history).await?;
+                self.update_cantine(cantine.cantine_id.as_str(), cantine.cantine_history)
+                    .await?;
                 Ok(())
             }
             None => {
@@ -141,7 +176,6 @@ impl DbClient {
         match res.upserted_id {
             Some(id) => Ok(Some(id.as_object_id().unwrap())),
             None => Ok(None),
-            
         }
     }
     pub async fn insert_dishes(

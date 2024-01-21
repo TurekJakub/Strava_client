@@ -1,3 +1,4 @@
+use bson::de;
 use bson::oid::ObjectId;
 use chrono::prelude::*;
 use serde::Deserialize;
@@ -116,7 +117,7 @@ pub struct UserDBEntry {
     pub settings: OrdersCancelingSettings,
     pub settings_update_time: SystemTime,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize,Debug)]
 pub struct CantineDBEntry {
     pub cantine_id: String,
     pub name: String,

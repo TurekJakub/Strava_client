@@ -1,17 +1,21 @@
+use crate::db_client::DbClient;
 use indexmap::IndexMap;
-use reqwest::{Client, Error};
+use reqwest::Client;
+use std::error::Error;
 use strava_client::data_struct::{
     Cantine, CantineDBEntry, CantineData, Date, DishDBEntry, DishInfo, OrdersCancelingSettings,
     UserDBEntry,
 };
 pub struct Crawler {
-    client: reqwest::Client,
+    client: Client,
+    db_client: DbClient,
 }
 impl Crawler {
-    pub fn new() -> Self {
-        Self {
-            client: Client::builder().cookie_store(true).build().unwrap(),
-        }
+    pub async fn new() -> Result<Self, Box<dyn Error>> {
+        Ok(Self {
+            client: Client::builder().cookie_store(true).build()?,
+            db_client: DbClient::new().await?,
+        })
     }
     pub async fn get_cantines(&self) -> Result<Vec<Cantine>, String> {
         let res_text = match self
@@ -55,20 +59,49 @@ impl Crawler {
             .send()
             .await
         {
-            Ok(res) => match res.text().await {
-                Ok(res_text) => res_text,
-                Err(_) => return Err("Failed to get cantine menu".to_string()),
-            },
+            Ok(res) => match res.error_for_status() {
+                Ok(res) =>{
+                    match res.text().await {
+                        Ok(res_text) => res_text,
+                        Err(_) => return Err("Failed to get cantine menu".to_string()),
+                    }
+                }
+                Err(_) => {
+                    return Err("Failed to get cantine menu".to_string())}
+            }
+           
 
             Err(_) => return Err("Failed to get cantine menu".to_string()),
         };
-        println!("{}", res_text);
         let cantine_menu: serde_json::Value = match serde_json::from_str(&res_text) {
             Ok(cantine_menu) => cantine_menu,
             Err(_) => return Err("Failed to parse cantine menu".to_string()),
         };
 
         Ok(parse_cantine_menu(cantine_menu))
+    }
+    pub async fn update_cantines_history(&self) -> Result<(), Box<dyn Error>> {
+        let cantines = self.get_cantines().await?;
+        for cantine in cantines {
+            println!("Updating cantine {}", cantine.name);
+            let cantine_dishes = match self.get_cantine_menu(&cantine.id).await {
+                Ok(cantine_dishes) => cantine_dishes,
+                Err(_) => continue,
+            };                 
+            let cantine_history = match  self.db_client.insert_dishes(cantine_dishes).await {
+                Ok(cantine_history) => cantine_history,
+                Err(_) => continue,
+            };
+            println!("Items added {}", cantine_history.len());
+            self.db_client
+                .insert_cantine(CantineDBEntry {
+                    cantine_id: cantine.id,
+                    name: cantine.name,
+                    cantine_history: cantine_history,
+                })
+                .await?;
+        }
+        Ok(())
     }
 }
 fn parse_cantine_menu(cantine_menu: serde_json::Value) -> Vec<DishDBEntry> {

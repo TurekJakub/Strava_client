@@ -1,10 +1,9 @@
 use crate::db_client::DbClient;
-use indexmap::IndexMap;
+
 use reqwest::Client;
 use std::error::Error;
 use strava_client::data_struct::{
-    Cantine, CantineDBEntry, CantineData, Date, DishDBEntry, DishInfo, OrdersCancelingSettings,
-    UserDBEntry,
+    Cantine, CantineDBEntry, CantineData, DishDBEntry,
 };
 pub struct Crawler {
     client: Client,
@@ -106,7 +105,7 @@ impl Crawler {
 }
 fn parse_cantine_menu(cantine_menu: serde_json::Value) -> Vec<DishDBEntry> {
     let mut menu = Vec::new();
-    for (day, dishes) in cantine_menu.as_object().unwrap() {
+    for (_day, dishes) in cantine_menu.as_object().unwrap() {
         for dish in dishes.as_array().unwrap() {
             let mut allergens = Vec::new();
             for allergen in dish.get("alergeny").unwrap().as_array().unwrap() {

@@ -3,19 +3,15 @@ use actix_web::cookie::Key;
 
 use actix_web::{
     guard::{fn_guard, Any, Get, GuardContext, Not, Post},
-    post,
     web::{get, post, resource, route, Path},
     App, HttpResponse, HttpServer, Responder,
 };
-use bson::oid::ObjectId;
 use std::collections::HashMap;
 use std::env;
-use std::str::FromStr;
 
 use db_client::DbClient;
-use std::collections::HashSet;
 use strava_client::data_struct::{
-    CantineDBEntry, Config, OrderDishRequestBody, SettingsRequestBody, User, UserDBEntry,
+    Config, OrderDishRequestBody, SettingsRequestBody, User, UserDBEntry,
 };
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
@@ -29,7 +25,12 @@ static DB_CLIENT: OnceCell<DbClient> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() {
-    crawler::Crawler::new().await.unwrap().update_cantines_history().await.unwrap();
+    Crawler::new()
+        .await
+        .unwrap()
+        .update_cantines_history()
+        .await
+        .unwrap();
     /*
     dotenv::dotenv().ok();
     let secret_key = Key::generate();

@@ -314,6 +314,7 @@ dependencies = [
  "actix-web",
  "bson",
  "dotenv",
+ "futures-util",
  "indexmap 2.1.0",
  "mongodb",
  "reqwest",

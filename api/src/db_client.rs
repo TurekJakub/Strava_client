@@ -1,13 +1,13 @@
 use bson::oid::ObjectId;
 use futures_util::stream::StreamExt;
-use mongodb::bson::{to_bson, Bson, Document};
+
 use mongodb::options::{AuthMechanism, Tls, TlsOptions};
 use mongodb::options::{Credential, UpdateOptions};
 use mongodb::{bson::doc, options::ClientOptions, Client, Collection};
-use std::collections::HashMap;
+
 use std::env;
 use std::path::PathBuf;
-use std::str::FromStr;
+
 use std::time::SystemTime;
 use strava_client::data_struct::{
     CantineDBEntry, DishDBEntry, OrdersCancelingSettings, UserDBEntry,

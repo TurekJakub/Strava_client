@@ -1,3 +1,4 @@
+use bson::Document;
 use bson::oid::ObjectId;
 use futures_util::stream::StreamExt;
 
@@ -162,14 +163,14 @@ impl DbClient {
     }
     pub async fn insert_dish(
         &self,
-        dish: DishDBEntry,
+        dish: &DishDBEntry,
     ) -> Result<Option<ObjectId>, mongodb::error::Error> {
         let collection = self.get_dishes_collection().await;
         let options = UpdateOptions::builder().upsert(true).build();
         let res = collection
             .update_one(
                 doc! {"name": dish.name.clone(), "allergens":dish.allergens.clone()},
-                doc! { "$setOnInsert": doc!{"name":dish.name, "allergens":dish.allergens}},
+                doc! { "$setOnInsert": doc!{"name":dish.name.clone(), "allergens":dish.allergens.clone()}},
                 options,
             )
             .await?;
@@ -184,12 +185,26 @@ impl DbClient {
     ) -> Result<Vec<ObjectId>, mongodb::error::Error> {
         let mut updated = Vec::new();
         for dish in dishes {
-            match self.insert_dish(dish).await? {
+            match self.insert_dish(&dish).await? {
                 Some(id) => updated.push(id),
-                None => continue,
+                None => {
+                   match self.get_dish_id(&dish.name, &dish.allergens).await {
+                        Ok(Some(id)) => updated.push(id),
+                        Ok(None) => continue,
+                        Err(_) => continue,
+                   }
+                }
             }
         }
         Ok(updated)
+    }
+    pub async fn get_dish_id(&self, name: &String, allergens: &Vec<String> ) -> Result<Option<ObjectId>, mongodb::error::Error> {
+        let collection:Collection<Document> =  self.client.database("strava").collection("dishes");
+        let dish = collection.find_one(doc! {"name": name, "allergens": allergens}, None).await?;
+        match dish {
+            Some(dish) => Ok(Some(dish.get_object_id("_id").unwrap().clone())),
+            None => Ok(None)
+        }
     }
     async fn get_users_collection(&self) -> Collection<UserDBEntry> {
         let database = self.client.database("strava");
@@ -203,6 +218,44 @@ impl DbClient {
         let database = self.client.database("strava");
         database.collection("dishes")
     }
+    /*
+    [
+    doc! {
+        "$match": doc! {
+            "name": name
+        }
+    },
+    doc! {
+        "$unwind": doc! {
+            "path": "$cantine_history"
+        }
+    },
+    doc! {
+        "$lookup": doc! {
+            "from": "dishes",
+            "localField": "cantine_history",
+            "foreignField": "_id",
+            "as": "dish"
+        }
+    },
+    doc! {
+        "$unwind": doc! {
+            "path": "$dish"
+        }
+    },
+    doc! {
+        "$group": doc! {
+            "_id": "$_id",
+            "dishes": doc! {
+                "$push": "$dish"
+            },
+            "cantine_history": doc! {
+                "$push": "$cantine_history"
+            }
+        }
+    }
+]
+ */
 }
 async fn connect() -> Result<mongodb::Client, mongodb::error::Error> {
     dotenv::dotenv().ok();

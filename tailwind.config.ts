@@ -3,7 +3,7 @@ export default {
   content: ['./src/**/*.{html,js,svelte,ts}'],
   darkMode: 'class',
   theme: {
-    extend: {},
+    extend: { opacity: ['disabled'],},
     borderWidth: {
       DEFAULT: '1px',
       0: '0',
@@ -13,6 +13,6 @@ export default {
       8: '8px',
     },
   },
-  plugins: [],
+  plugins: [require('flowbite/plugin')],
 }
 

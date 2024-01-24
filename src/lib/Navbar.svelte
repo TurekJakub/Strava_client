@@ -1,32 +1,35 @@
 <script lang="ts">
-  import { slide } from 'svelte/transition'
-  import { invoke } from '@tauri-apps/api/tauri'
-  let  expanded: boolean = false
- function expand() {
-   expanded = !expanded;
- }
- async function saveOrders() {
-   await invoke('save_orders');
- }
+	import { slide } from 'svelte/transition';
+	import { Button, Dropdown, DropdownItem } from 'flowbite-svelte';
+	import { invoke } from '@tauri-apps/api/tauri';
+	let expanded: boolean = false;
+	let username: string = "Nepřihlášen";
+	async function saveOrders() {
+		await invoke('save_orders');
+	}
+	async function logout() {
+		await invoke('logout');
+	}
 </script>
-<nav class="dark:bg-slate-800 w-full flex flex-row align-middle" style="height: 50px;">
- <h1 class="dark:text-white  text-2xl text-center">Strava-klient</h1>
- <a class="dark:text-white align-middle h-fit" href="/objednavky">Objednávky</a>
- <a class="dark:text-white" href="/">Nastavení</a>
- <button type="button" class="dark:bg-violet-700 rounded-md" id="menu-button" on:click={saveOrders} style="width: 75px;">Odeslat</button>
- <div class="justify-end ms-auto me-10">
-    <button type="button" class="dark:bg-slate-800 dark:text-white" id="menu-button" on:click={expand} style="width: 75px;">
-      Options     
-    </button>
-    {#if expanded}
-      <div class="dark:bg-slate-800 mt-5 rounded flex flex-col border-white border dark:text-white" transition:slide style="width: 75px;">
-        <a href="/login">Přihlášení</a>
-        <a href="/logout">Odhlášení</a>
-      </div>
-    {/if}
- </div>
 
- 
-  
-  
+<nav
+	class="dark:bg-slate-800 w-full flex flex-row align-middle justify-center"
+	style="height: 50px;"
+>
+	<div class="md:w-3/4 w-full flex flex-row justify-start">
+		<h1 class="dark:text-white text-2xl text-center mt-auto mb-auto ms-2">Strava-klient</h1>
+		<a
+			class="dark:text-white text-center mt-auto mb-auto ms-16"
+			style="display: block;"
+			href="/objednavky">Objednávky</a
+		>
+		<a class="dark:text-white text-center mt-auto mb-auto ms-2 me-auto" href="/">Nastavení</a>
+
+		<button class="dark:text-white me-2 ms-auto text-center bg-slate-900 rounded" id="user_button"
+			>{username}</button
+		>
+		<Dropdown class="bg-slate-800 rounded-md" triggeredBy="#user_button">
+			<DropdownItem><button on:click={logout}>Odhlásit</button></DropdownItem>
+		</Dropdown>
+	</div>
 </nav>

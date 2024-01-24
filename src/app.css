@@ -3,16 +3,26 @@
 @tailwind utilities;
 
 @layer components {
-  .dark-mode-autofill {
-    &:-webkit-autofill,
-    &:-webkit-autofill:hover, 
-    &:-webkit-autofill:focus ,
-    &:-webkit-autofill:active{
-        -webkit-text-fill-color: white;
-        -webkit-box-shadow: 0 0 0px 1000px rgb(30 41 59 / var(--tw-bg-opacity)) inset;
-        color: white;
-        
-    }
-  }
+	.dark-mode-autofill {
+		&:-webkit-autofill,
+		&:-webkit-autofill:hover,
+		&:-webkit-autofill:focus,
+		&:-webkit-autofill:active {
+			-webkit-text-fill-color: white;
+			-webkit-box-shadow: 0 0 0px 1000px rgb(30 41 59 / var(--tw-bg-opacity)) inset;
+			color: white;
+		}
+	}
 }
-
+.menu-item {
+	height: 30px;
+}
+.non-expand {
+	--tw-ring-inset: 0;
+	--tw-ring-offset-width: 0px;
+	--tw-ring-offset-color: none;
+	--tw-ring-color: none;
+	--tw-ring-offset-shadow: none;
+	--tw-ring-shadow: none;
+	box-shadow: none !important;
+}

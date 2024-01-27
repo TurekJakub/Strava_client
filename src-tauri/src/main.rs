@@ -73,6 +73,7 @@ async fn save_orders() -> Result<(), String> {
 }
 #[tokio::main]
 async fn main() {
+    /*
     let x = SettingsRequestBody{
       settings: OrdersCancelingSettings{
         balacklisted_allergens: Vec::from([1]),
@@ -82,13 +83,12 @@ async fn main() {
       settings_update_time: std::time::SystemTime::now(),
     };
     println!("{}", serde_json::to_string(&x).unwrap());
+    */
 
-    /*
     tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![get_menu_data, login, order_dish, save_orders])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
-    */
     /*
     keytar::set_password("strava_client", "username", "password").unwrap();
     keytar::set_password("strava_client", "username1", "password1").unwrap();

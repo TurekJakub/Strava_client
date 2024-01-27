@@ -3,7 +3,7 @@
 	import { Button, Dropdown, DropdownItem } from 'flowbite-svelte';
 	import { invoke } from '@tauri-apps/api/tauri';
 	let expanded: boolean = false;
-	let username: string = "Nepřihlášen";
+	$: username = localStorage.getItem('username') || 'Nepřihlášen';
 	async function saveOrders() {
 		await invoke('save_orders');
 	}
@@ -14,22 +14,45 @@
 
 <nav
 	class="dark:bg-slate-800 w-full flex flex-row align-middle justify-center"
-	style="height: 50px;"
+	style="height: 80px;"
 >
-	<div class="md:w-3/4 w-full flex flex-row justify-start">
-		<h1 class="dark:text-white text-2xl text-center mt-auto mb-auto ms-2">Strava-klient</h1>
-		<a
-			class="dark:text-white text-center mt-auto mb-auto ms-16"
-			style="display: block;"
-			href="/objednavky">Objednávky</a
-		>
-		<a class="dark:text-white text-center mt-auto mb-auto ms-2 me-auto" href="/">Nastavení</a>
-
-		<button class="dark:text-white me-2 ms-auto text-center bg-slate-900 rounded" id="user_button"
-			>{username}</button
-		>
-		<Dropdown class="bg-slate-800 rounded-md" triggeredBy="#user_button">
-			<DropdownItem><button on:click={logout}>Odhlásit</button></DropdownItem>
-		</Dropdown>
+	<div class="flex flex-col w-full md:w-3/4" style="height: 50px;">
+		<div class="flex flex-row border-b w-100 border-white" style="height: 50px;">
+			<h1 class="dark:text-white text-4xl text-center mt-auto mb-auto ms-2">Strava-klient</h1>
+			<button
+				class="dark:text-white flex flex-row me-2 ms-auto text-center border border-white rounded mt-1 mb-1 px-2"
+				id="user_button"
+				><svg
+					style="height: 20px ; width: 20px;"
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="1.5"
+					stroke="currentColor"
+					class="mt-auto mb-auto me-2"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+					/>
+				</svg><p class="mt-auto mb-auto">{username}</p></button
+			>
+			{#key username}
+			{#if username != 'Nepřihlášen'}
+			<Dropdown class="bg-slate-800 rounded-md border border-white" triggeredBy="#user_button">
+				<DropdownItem><button on:click={logout}><p class="mx-9 text-white">Odhlásit</p></button></DropdownItem>
+			</Dropdown>
+			{/if}
+			{/key}
+		</div>
+		<div class="flex flex-row" style="height: 30px;">
+			<a
+				class="dark:text-white text-center mt-auto ms-2 mb-auto"
+				style="display: block;"
+				href="/objednavky">Objednávky</a
+			>
+			<a class="dark:text-white mt-auto text-center mb-auto ms-2 me-auto" href="/">Nastavení</a>
+		</div>
 	</div>
 </nav>

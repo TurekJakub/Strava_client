@@ -11,3 +11,6 @@ type DailyMenu = {
 
 }
 type MenuData = [string[], Menu];
+declare module 'TauriComunicationLayer' {
+  export function login(username: string, password: string, cantine: number, stayLogged: boolean): Promise<string>;
+}

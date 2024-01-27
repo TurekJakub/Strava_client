@@ -1,36 +1,24 @@
 <script lang="ts">
-	import { invoke } from '@tauri-apps/api/tauri';
 	import Error from './Error.svelte';
-	import { error } from '@sveltejs/kit';
-	import { goto } from '$app/navigation';
+	import { login } from '$lib/TauriComunicationLayer';
 	let username: string;
 	let cantine: number;
-	let stayLogged: boolean;
+	let stayLogged: boolean = false;
 	let show_password: boolean = false;
 	let message: string = '';
 	let err: boolean = false;
 	$: type = show_password ? 'text' : 'password';
 	let value: string = '';
-	async function submit(e: Event) {
-		await invoke('login', {
-			username: username,
-			password: value,
-			cantine: cantine,
-			stayLogged: true
-		}).then(
-			() => {
-				goto('/objednavky');
-			},
-			(error) => {
-				message = error as string;
-				err = true;
-				console.log(err);
-			}
-		);
+
+	async function submit() {
+		const res = await login(username, value, cantine, stayLogged);
+		err = res === null;
 	}
+
 	function onPasswordInput(e: Event) {
 		value = (e.target as HTMLInputElement).value;
 	}
+
 	function showPassword() {
 		show_password = !show_password;
 	}
@@ -64,7 +52,7 @@
 			/>
 			<label class="text-white mt-2" for="password">Heslo:</label>
 			<div
-				class=" flex flex-row border-2 border-white rounded-md px-1 focus-within:outline-2  focus-within:outline-violet-700 focus-within:outline focus-within:border-none menu-item focus:outline-none"
+				class=" flex flex-row border-2 border-white rounded-md px-1 focus-within:outline-2 focus-within:outline-violet-700 focus-within:outline focus-within:border-none menu-item focus:outline-none"
 			>
 				<input
 					{type}
@@ -75,15 +63,29 @@
 					on:input={onPasswordInput}
 					required
 				/>
-				<button class="text-white me-0 select-none active:shadow-none" type="button" on:click={showPassword} tabindex="-1"
-					>{show_password ? 'Hide' : 'Show'} </button
-				>
+				<button
+					class="text-white me-0 select-none active:shadow-none"
+					type="button"
+					on:click={showPassword}
+					tabindex="-1"
+					>{show_password ? 'Hide' : 'Show'}
+				</button>
 			</div>
 			<div class="flex-row mt-2">
-				<input class="non-expand focus:border-none focus:ring-0 focus:outline-offset-0 focus:outline-violet-700 rounded-sm" type="checkbox" name="stay_logged" id="stayLogged" bind:value={stayLogged}  />
+				<input
+					class="non-expand focus:border-none focus:ring-0 focus:outline-offset-0 focus:outline-violet-700 rounded-sm"
+					type="checkbox"
+					name="stay_logged"
+					id="stayLogged"
+					bind:value={stayLogged}
+				/>
 				<label class="text-white ms-2" for="stayLoggeda">Zůstat přihlášen</label>
 			</div>
-			<input class="bg-violet-700 mt-5 rounded-md menu-item focus:ring-0 focus:border-none focus:outline-white focus:outline-1 outline-none" type="submit" value="Přihlásit" />
+			<input
+				class="bg-violet-700 mt-5 rounded-md menu-item focus:ring-0 focus:border-none focus:outline-white focus:outline-1 outline-none"
+				type="submit"
+				value="Přihlásit"
+			/>
 		</form>
 	</div>
 	{#if err}

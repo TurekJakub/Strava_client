@@ -23,15 +23,16 @@ mod db_client;
 static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
 static DB_CLIENT: OnceCell<DbClient> = OnceCell::const_new();
 
-#[tokio::main]
-async fn main() {
+#[actix_web::main]
+async fn main() -> Result<(), std::io::Error>{
+    /*
     Crawler::new()
         .await
         .unwrap()
         .update_cantines_history()
         .await
         .unwrap();
-    /*
+    */
     dotenv::dotenv().ok();
     let secret_key = Key::generate();
     HttpServer::new(move || {
@@ -139,7 +140,7 @@ async fn main() {
     ))?
     .run()
     .await
-    */
+    
 }
 
 fn authorized_guard(context: &GuardContext) -> bool {

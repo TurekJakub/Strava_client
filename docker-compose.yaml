@@ -1,0 +1,23 @@
+services:
+  api:
+    image: api
+    command: run
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    network_mode: host
+  proxy:
+    image: valian/docker-nginx-auto-ssl
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ssl_data:/etc/resty-auto-ssl
+      - ./config.conf:/etc/nginx/conf.d/config.conf
+    environment:
+      ALLOWED_DOMAINS: 'http://127.0.0.1/'  
+volumes:
+  ssl_data:
+
+    

@@ -132,7 +132,11 @@ async fn main() -> Result<(), std::io::Error>{
                         )
                         .default_service(route().to(unauthorized)),
                     )
-                    .service(resource("/cantine_history/{cantine_id}").route(get().to(get_cantine_history)))
+                    .service(resource("/cantine_history/{cantine_id}").route(get().to(get_cantine_history))) 
+                    .service(
+                        resource("/").route(
+                            route().to(unauthorized)
+                        ))
                 })
     .bind((
         env::var("IP_ADDRESS").unwrap(),

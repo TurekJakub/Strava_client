@@ -1,23 +1,35 @@
 services:
   api:
     image: api
+    build: 
+      context: .
+      dockerfile: ./api.Dockerfile
     command: run
-    ports:
-      - "8080:8080"
+    restart: unless-stopped
+    network_mode: host 
+  frontend:
+    image: frontend
+    build: 
+      context: .
+      dockerfile: ./frontend.Dockerfile
     restart: unless-stopped
     network_mode: host
-  proxy:
-    image: valian/docker-nginx-auto-ssl
-    restart: unless-stopped
-    ports:
-      - 80:80
-      - 443:443
+  caddy:
+    image: caddy:latest    
+    network_mode: host
     volumes:
-      - ssl_data:/etc/resty-auto-ssl
-      - ./config.conf:/etc/nginx/conf.d/config.conf
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    restart: unless-stopped
     environment:
-      ALLOWED_DOMAINS: 'http://127.0.0.1/'  
+      - HOST=http://website.local:80
 volumes:
-  ssl_data:
+  caddy_data:
+
+
+    
+    
+
 
     

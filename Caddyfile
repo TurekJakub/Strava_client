@@ -1,0 +1,8 @@
+{$HOST} {
+	handle_path /api/* {
+		reverse_proxy localhost:8080
+	}
+	reverse_proxy localhost:5173
+}
+
+# HTTPS site block

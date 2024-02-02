@@ -2,18 +2,10 @@
 	import Menu from '$lib/Menu.svelte';
 	import Navbar from '$lib/Navbar.svelte';
 	import { onMount } from 'svelte';
-	import { invoke } from '@tauri-apps/api/tauri';
+	import {getUserMenu} from '$lib/WebComunicationLayer';
 	let menuData: MenuData = [[], {}];
 	onMount(async () => {
-		await invoke('get_menu_data', {}).then(
-			(data) => {
-				menuData = data as MenuData;
-				console.log((data as [string[], MenuData])[0]);
-			},
-			(error) => {
-				console.log(error);
-			}
-		);
+		menuData = await (getUserMenu() as unknown as Promise<MenuData>);
 	});
 </script>
 

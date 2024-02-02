@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Error from './Error.svelte';
-	import { login } from '$lib/TauriComunicationLayer';
+	import { login } from '$lib/WebComunicationLayer';
 	let username: string;
 	let cantine: number;
 	let stayLogged: boolean = false;

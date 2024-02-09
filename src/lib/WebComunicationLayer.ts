@@ -1,9 +1,9 @@
 import { goto } from '$app/navigation';
+import { json } from '@sveltejs/kit';
 import type Menu from './Menu.svelte';
 
 async function login(username: string, value: string, cantine: number, stayLogged: boolean){
     const user  = {"jmeno": username, "heslo": value, "cislo": cantine, "zustatPrihlasen": false,"lang": "CZ"};
-    console.log(user);
     fetch('http://localhost:8080/login', {
         method: 'POST',
         credentials: "include",
@@ -36,7 +36,8 @@ async function getUserMenu(){
     }).then(
         (response) => {
           response.json().then((data) => {
-            return JSON.parse(data.MenuData) as Menu;
+            let menu: Map<string, Menu> = JSON.parse(data);
+            return menu;
           })
         },
         (error: any) => {				

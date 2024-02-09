@@ -113,6 +113,7 @@ pub struct OrdersCancelingSettings {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserDBEntry {
+    pub id: String,
     pub username: String,
     pub settings: OrdersCancelingSettings,
     pub settings_update_time: SystemTime,

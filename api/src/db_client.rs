@@ -38,16 +38,16 @@ impl DbClient {
     }
     pub async fn get_settings(
         &self,
-        username: &str,
+        id: &str,
     ) -> Result<Option<OrdersCancelingSettings>, mongodb::error::Error> {
-        let user = self.get_user(username).await?;
+        let user = self.get_user(id).await?;
         match user {
             Some(user) => Ok(Some(user.settings)),
             None => Ok(None),
         }
     }
     pub async fn insert_user(&self, user: UserDBEntry) -> Result<(), mongodb::error::Error> {
-        match self.get_user(&user.username).await? {
+        match self.get_user(&user.id).await? {
             Some(_) => {
                 self.update_user(user).await?;
                 Ok(())
@@ -58,10 +58,10 @@ impl DbClient {
             }
         }
     }
-    async fn get_user(&self, username: &str) -> Result<Option<UserDBEntry>, mongodb::error::Error> {
+    async fn get_user(&self, id: &str) -> Result<Option<UserDBEntry>, mongodb::error::Error> {
         let collection = self.get_users_collection().await;
         let user = collection
-            .find_one(doc! { "username": username }, None)
+            .find_one(doc! { "id": id }, None)
             .await;
         user
     }
@@ -206,6 +206,10 @@ impl DbClient {
             None => Ok(None)
         }
     }
+    pub async fn get_cantine_history(&self,cantine_id: &str) -> Result<Vec<DishDBEntry>, mongodb::error::Error> {
+      // TODO write aggregation
+        Ok(Vec::new())
+    }
     async fn get_users_collection(&self) -> Collection<UserDBEntry> {
         let database = self.client.database("strava");
         database.collection("users")
@@ -222,7 +226,7 @@ impl DbClient {
     [
     doc! {
         "$match": doc! {
-            "name": name
+            "cantine_id": cantine_id
         }
     },
     doc! {

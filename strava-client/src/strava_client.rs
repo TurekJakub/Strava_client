@@ -69,7 +69,7 @@ impl StravaClient {
             }
         }
     }
-    pub async fn login(&self, user: &User<'_>) -> Result<(), String> {
+    pub async fn login(&self, user: &User<'_>) -> Result<String, String> {
         match self.settings.settings.get("data_source").unwrap().as_str() {
             "api" => (),
             "scraper" => {self.screaper.get_or_init(||Scraper::new()).await.login(&user).await?},
@@ -79,8 +79,7 @@ impl StravaClient {
                 )
             }
         };
-        self.request_builder.do_login_request(&user).await?;
-        Ok(())
+        Ok(self.request_builder.do_login_request(&user).await?)
     }
     pub async fn order_dish(&self, dish_id: String, ordered: bool) -> Result<(), String> {
         let amount = if ordered {1} else {0};

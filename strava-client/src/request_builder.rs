@@ -22,7 +22,7 @@ impl RequestBuilder {
         }
     }
     // authenticate user and retun errors if occured
-    pub async fn do_login_request(&self, user: &User<'_>) -> Result<(), String> {
+    pub async fn do_login_request(&self, user: &User<'_>) -> Result<String, String> {
         self.do_get("https://app.strava.cz/prihlasit-se?jidelna")
             .await;
         match self
@@ -44,7 +44,7 @@ impl RequestBuilder {
                         .set(res_json.get("s5url").unwrap().as_str().unwrap().to_string())
                         .unwrap();
                     self.canteen_id.set(user.cantine.to_string()).unwrap();
-                    Ok(())
+                    Ok(res_json.get("uzivatel").unwrap().get("jmeno").unwrap().as_str().unwrap().to_string())
                 }
                 _ => match res
                     .json::<serde_json::Value>()

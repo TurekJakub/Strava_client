@@ -4,6 +4,6 @@
 <script lang="ts">
     import {goto} from '$app/navigation';
     function click() {
-        goto('/uwu');
+        goto('/objednavky');
     }
 </script>

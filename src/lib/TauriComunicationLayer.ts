@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { goto } from '$app/navigation';
 
 async function login(username: string, value: string, cantine: number, stayLogged: boolean){
-    await invoke('login', {
+    let res =await invoke('login', {
         username: username,
         password: value,
         cantine: cantine,
@@ -10,12 +10,9 @@ async function login(username: string, value: string, cantine: number, stayLogge
     }).then(
         () => {
             goto('/objednavky');
-            localStorage.setItem("username", username);
-            return null;
+            localStorage.setItem("username", username);            
         },
-        (error: any) => {				
-            return error as string;
-        }
+       
     );
 }
 export { login };

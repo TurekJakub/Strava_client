@@ -1,18 +1,29 @@
 <script lang="ts">
 	import Error from './Error.svelte';
 	import { login } from '$lib/WebComunicationLayer';
+	import { goto } from '$app/navigation';
 	let username: string;
 	let cantine: number;
 	let stayLogged: boolean = false;
 	let show_password: boolean = false;
 	let message: string = '';
-	let err: boolean = false;
 	$: type = show_password ? 'text' : 'password';
 	let value: string = '';
 
 	async function submit() {
-		const res = await login(username, value, cantine, stayLogged);
-		err = res === null;
+		let res = await login(username, value, cantine, stayLogged);
+		console.log(res);
+		switch (res._t)
+		{
+			case 'success':
+				localStorage.setItem('username', res.data);
+				goto('/objednavky');
+				break;
+			case 'failure':
+				message = res.error;
+				break;
+		}
+		
 	}
 
 	function onPasswordInput(e: Event) {
@@ -88,7 +99,7 @@
 			/>
 		</form>
 	</div>
-	{#if err}
+	{#if message != ''}
 		<Error {message} />
 	{/if}
 </div>

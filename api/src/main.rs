@@ -221,11 +221,11 @@ async fn login(req_body: String, session: Session, state: Data<Mutex<AppState>>)
                     let id = format!("{}{}", user_data.username, user_data.cantine);
                     session.renew();
                     session.insert("id", id.clone()).unwrap();
-                    session.insert("username", user).unwrap();
+                    session.insert("username", user.clone()).unwrap();
                     state.lock().unwrap().strava_clients.insert(id, client);
                     return HttpResponse::Ok().body(format!(
-                        r#"{{"message":"succesfully logged in","logged_as":{}}}"#,
-                        user_data.username
+                        r#"{{"message":"succesfully logged in","user":"{}"}}"#,
+                        user
                     ));
                 }
                 Err(_) => {
@@ -349,5 +349,5 @@ fn server_error(message: &str) -> HttpResponse {
     return HttpResponse::InternalServerError().body(format!(r#"{{"message":"{}"}}"#, message));
 }
 fn succes(key: &str, value: &str) -> HttpResponse {
-    return HttpResponse::Ok().body(format!(r#"{{"{}":"{}"}}"#, key, value));
+    return HttpResponse::Ok().body(format!(r#"{{"{}": {} }}"#, key, value));
 }

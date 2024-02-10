@@ -3,7 +3,7 @@
 	import { Button, Dropdown, DropdownItem } from 'flowbite-svelte';
 	import { invoke } from '@tauri-apps/api/tauri';
 	let expanded: boolean = false;
-	$: username = localStorage.getItem('username') || 'Nepřihlášen';
+    $: username = localStorage.getItem('username') || 'Nepřihlášen';
 	async function saveOrders() {
 		await invoke('save_orders');
 	}

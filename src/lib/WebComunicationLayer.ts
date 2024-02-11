@@ -12,7 +12,7 @@ const login = async (
 		jmeno: username,
 		heslo: value,
 		cislo: cantine,
-		zustatPrihlasen: false,
+		zustatPrihlasen: stayLogged,
 		lang: 'CZ'
 	};
 
@@ -53,4 +53,20 @@ const getUserMenu = async (): Promise<Result<Menu,string>> => {
     }    
     
 }
-export { login, getUserMenu };
+const orderDish = async (dishId: string, status: boolean): Promise<Result<void,string>> => {
+	let res = await fetch('http://localhost:8080/order_dish', {
+		method: 'POST',
+		credentials: 'include',
+		headers: {
+			// 'csrf-token': 'nocheck',
+			'Content-Type': 'application/json;charset=UTF-8'
+		},
+		body: JSON.stringify({ id: dishId, status: status })
+	})
+	if (res.status !== 200) {
+		let c =  await res.json();
+		return { _t: "failure", error: (c as ErrorResponse).message };
+	}
+	return { _t: "success", data: undefined };
+}
+export { login, getUserMenu, orderDish };

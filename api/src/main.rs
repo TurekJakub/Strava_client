@@ -287,11 +287,11 @@ async fn set_user_settings(session: Session, req_body: String, state: Data<Mutex
         }
     }
 }
-async fn order_dish(req_body: String, state: Data<Mutex<AppState>>, session: Session) -> impl Responder {
+async fn  order_dish(req_body: String, state: Data<Mutex<AppState>>, session: Session) -> impl Responder {
     match serde_json::from_str::<OrderDishRequestBody>(req_body.as_str()) {
         Ok(dish_info) => {
             match state.lock().unwrap().strava_clients.get(&session.get::<String>("id").unwrap().unwrap()).unwrap()
-                .order_dish(dish_info.dish_id, dish_info.ordered)
+                .order_dish(dish_info.id, dish_info.status)
                 .await
             {
                 Ok(_) => {

@@ -1,8 +1,12 @@
-type DishInfo = {
+type  DishInfo = {
 	id: string;
 	allergens: string[];
 	order_state: boolean;
 };
+type OrderDishRequest = {
+	id: string;
+	status: boolean;
+}
 type LoginResponse = {
 	message: string;
 	user: string;
@@ -45,4 +49,5 @@ declare module 'WebComunicationLayer' {
 		stayLogged: boolean
 	): Promise<Result>;
 	export function getUserMenu(): Promise<MenuData>;
+	export function orderDish(dishId: string, status: boolean): Promise<Result<void,string>>;
 }

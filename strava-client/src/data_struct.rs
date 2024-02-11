@@ -150,8 +150,8 @@ pub struct SettingsRequestBody {
 #[derive(Serialize, Deserialize)]
 
 pub struct OrderDishRequestBody {
-    pub dish_id: String,
-    pub ordered: bool,
+    pub id: String,
+    pub status: bool,
 }
 #[derive(Deserialize, Serialize)]
 pub struct Config {

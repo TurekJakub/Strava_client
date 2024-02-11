@@ -13,7 +13,8 @@
 </script>
 
 <nav
-	class="dark:bg-slate-800 w-full flex flex-row align-middle justify-center"
+	class="dark:bg-slate-800 w-full flex flex-row align-middle justify-center  sticky
+	top-0"
 	style="height: 80px;"
 >
 	<div class="flex flex-col w-full md:w-3/4" style="height: 50px;">

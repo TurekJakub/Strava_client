@@ -1,14 +1,17 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
-	import { Button, Dropdown, DropdownItem } from 'flowbite-svelte';
-	import { invoke } from '@tauri-apps/api/tauri';
+	import {Dropdown, DropdownItem } from 'flowbite-svelte';
+	import { logout } from '$lib/WebComunicationLayer';
+	import { goto } from '$app/navigation';
+
 	let expanded: boolean = false;
     $: username = localStorage.getItem('username') || 'Nepřihlášen';
+
 	async function saveOrders() {
-		await invoke('save_orders');
+		// await invoke('save_orders');
 	}
-	async function logout() {
-		await invoke('logout');
+	async function logoutHandler() {
+		await logout();
+		goto('/login');
 	}
 </script>
 
@@ -42,7 +45,7 @@
 			{#key username}
 			{#if username != 'Nepřihlášen'}
 			<Dropdown class="bg-slate-800 rounded-md border border-white" triggeredBy="#user_button">
-				<DropdownItem><button on:click={logout}><p class="mx-9 text-white">Odhlásit</p></button></DropdownItem>
+				<DropdownItem><button on:click={logoutHandler}><p class="mx-9 text-white">Odhlásit</p></button></DropdownItem>
 			</Dropdown>
 			{/if}
 			{/key}

@@ -69,4 +69,14 @@ const orderDish = async (dishId: string, status: boolean): Promise<Result<void,s
 	}
 	return { _t: "success", data: undefined };
 }
-export { login, getUserMenu, orderDish };
+const logout = async (): Promise<void> => {
+	await fetch('http://localhost:8080/logout', {
+		method: 'POST',
+		credentials: 'include',
+		headers: {
+			// 'csrf-token': 'nocheck',
+			'Content-Type': 'application/json;charset=UTF-8'
+		}
+	})
+}
+export { login, getUserMenu, orderDish, logout };

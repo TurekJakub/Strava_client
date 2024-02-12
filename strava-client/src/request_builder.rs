@@ -5,6 +5,7 @@ use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use reqwest::{Client, Response};
 use scraper::Html;
+use serde_json::{Value,Map};
 
 pub struct RequestBuilder {
     client: Client,
@@ -22,7 +23,7 @@ impl RequestBuilder {
         }
     }
     // authenticate user and retun errors if occured
-    pub async fn do_login_request(&self, user: &User<'_>) -> Result<String, String> {
+    pub async fn  do_login_request(&self, user: &User<'_>) -> Result<String, String> {
         self.do_get("https://app.strava.cz/prihlasit-se?jidelna")
             .await;
         match self
@@ -116,9 +117,22 @@ impl RequestBuilder {
             )
             .await
         {
-            Ok(res) => match res.error_for_status() {
-                Ok(_) => Ok(()),
-                Err(e) => return Err(e.to_string()),
+            Ok(res) => match res.status() {
+                reqwest::StatusCode::OK => Ok(()),
+                _ => {
+                    let x = serde_json::from_str::<Map<String,Value>>(&res.text().await.unwrap());
+                    match x {
+                        Ok(json) => {
+                            match json.get("message")  {
+                            Some(value) =>{
+                                return Err(value.as_str().unwrap().to_string());
+                            }
+                            None => return Err("Došlo k chybě serveru, zkuste to znovu později".to_string())
+                            }
+                        }
+                        Err(_) => {return Err("Došlo k chybě serveru, zkuste to znovu později".to_string())}
+                    }
+                }
             },
             Err(e) => return Err(e.to_string()),
         }

@@ -16,7 +16,7 @@
 			}
 		}
 		let res = await orderDish(menu[name].id, menu[name].order_state); // Web version from changed import for Tauri version
-		switch (res._t) {
+				switch (res._t) {
 			case 'success':
 				break;
 			case 'failure':

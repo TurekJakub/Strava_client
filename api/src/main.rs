@@ -52,7 +52,7 @@ async fn main() -> Result<(), std::io::Error> {
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
                     .cookie_http_only(true)
                     .cookie_same_site(actix_web::cookie::SameSite::None)
-                    .cookie_secure(false)
+                    .cookie_secure(true)
                     .build(),
             )
             .wrap(
@@ -290,15 +290,16 @@ async fn set_user_settings(session: Session, req_body: String, state: Data<Mutex
 async fn  order_dish(req_body: String, state: Data<Mutex<AppState>>, session: Session) -> impl Responder {
     match serde_json::from_str::<OrderDishRequestBody>(req_body.as_str()) {
         Ok(dish_info) => {
-            match state.lock().unwrap().strava_clients.get(&session.get::<String>("id").unwrap().unwrap()).unwrap()
+            match state.lock().unwrap().strava_clients.get(&session.get::<String>("id").unwrap().unwrap()).
+            unwrap()
                 .order_dish(dish_info.id, dish_info.status)
                 .await
             {
                 Ok(_) => {
                     return succes("message", "dish was succesfully ordered");
                 }
-                Err(_) => {
-                    return server_error("server error occurred while ordering dish");
+                Err(res) => {
+                    return  server_error(&res);
                 }
             }
         }

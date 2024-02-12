@@ -13,6 +13,5 @@ export default {
       8: '8px',
     },
   },
-  plugins: [require('flowbite/plugin')],
 }
 

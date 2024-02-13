@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/tauri';
-	import { orderDish } from '$lib/WebComunicationLayer'; // change to TauriComunicationLayer for Tauri version
+	import { orderDish, saveOrder } from '$lib/WebComunicationLayer'; // change to TauriComunicationLayer for Tauri version
+	export let account: number;
 	export let date: string;
 	export let menu: DailyMenu;
 	export let error: string;
@@ -16,10 +17,21 @@
 			}
 		}
 		let res = await orderDish(menu[name].id, menu[name].order_state); // Web version from changed import for Tauri version
-				switch (res._t) {
+		switch (res._t) {
 			case 'success':
+				console.log(res.data);
+				account = res.data;
+				let saveRes = await saveOrder(); // Web version from changed import for Tauri version
+				switch(saveRes._t) {
+					case 'success':
+						break;
+					case 'failure':
+						error = saveRes.error;
+						break;
+				}
 				break;
 			case 'failure':
+				(e.target as HTMLInputElement).checked = false;
 				error = res.error;
 				break;
 		}

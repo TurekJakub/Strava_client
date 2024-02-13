@@ -1,6 +1,5 @@
 use actix_session::{storage::CookieSessionStore, Session, SessionExt, SessionMiddleware};
 use actix_web::{cookie::Key, test};
-
 use actix_cors::Cors;
 use actix_web::{
     guard::{fn_guard, Any, Get, GuardContext, Not, Post},
@@ -9,6 +8,8 @@ use actix_web::{
     web::{get, post, resource, route, Path},
     App, HttpResponse, HttpServer, Responder,
 };
+use rand::Rng;
+use serde_json::ser;
 use std::collections::HashMap;
 use std::env;
 
@@ -168,10 +169,11 @@ fn authorized_guard(context: &GuardContext) -> bool {
 async fn user_status(session: Session) -> impl Responder {
     match session.get::<String>("username") {
         Ok(Some(username)) => {
-            return  succes("logged as", &username);
+            return succes("logged as", &username);
         }
         _ => {
-            return HttpResponse::Unauthorized().body(format!(r#"{{"message":"not authenticated"}}"#));
+            return HttpResponse::Unauthorized()
+                .body(format!(r#"{{"message":"not authenticated"}}"#));
         }
     }
 }
@@ -201,7 +203,7 @@ async fn get_user_menu(state: Data<Mutex<AppState>>, session: Session) -> impl R
         .lock()
         .unwrap()
         .strava_clients
-        .get(&session.get::<String>("id").unwrap().unwrap())
+        .get(&session.get::<String>("session_id").unwrap().unwrap())
         .unwrap()
         .get_menu()
         .await
@@ -219,13 +221,15 @@ async fn login(req_body: String, session: Session, state: Data<Mutex<AppState>>)
             match client.login(&user_data).await {
                 Ok(user) => {
                     let id = format!("{}{}", user_data.username, user_data.cantine);
+                    let session_id = format!("{}{}", id, rand::thread_rng().gen::<i16>());
                     session.renew();
                     session.insert("id", id.clone()).unwrap();
-                    session.insert("username", user.clone()).unwrap();
-                    state.lock().unwrap().strava_clients.insert(id, client);
+                    session.insert("session_id", session_id.clone()).unwrap();
+                    session.insert("username", user.username.clone()).unwrap();
+                    state.lock().unwrap().strava_clients.insert(session_id, client);
                     return HttpResponse::Ok().body(format!(
-                        r#"{{"message":"succesfully logged in","user":"{}"}}"#,
-                        user
+                        r#"{{"message":"succesfully logged in","user":{}}}"#,
+                        serde_json::to_string(&user).unwrap()
                     ));
                 }
                 Err(_) => {
@@ -244,7 +248,7 @@ async fn get_user_settings(session: Session, state: Data<Mutex<AppState>>) -> im
         .lock()
         .unwrap()
         .db_client
-        .get_settings(session.get::<String>("id").unwrap().unwrap().as_str())
+        .get_settings(session.get::<String>("session_id").unwrap().unwrap().as_str())
         .await;
     match settings {
         Ok(settings) => match settings {
@@ -261,19 +265,21 @@ async fn get_user_settings(session: Session, state: Data<Mutex<AppState>>) -> im
         Err(_) => server_error("server error occurred while loading user data"),
     }
 }
-async fn set_user_settings(session: Session, req_body: String, state: Data<Mutex<AppState>>) -> impl Responder {
+async fn set_user_settings(
+    session: Session,
+    req_body: String,
+    state: Data<Mutex<AppState>>,
+) -> impl Responder {
     let settings = serde_json::from_str::<SettingsRequestBody>(&req_body);
     match settings {
         Ok(settings) => {
             let settings = UserDBEntry {
-                id: session.get::<String>("id").unwrap().unwrap(),
+                id: session.get::<String>("session_id").unwrap().unwrap(),
                 username: session.get::<String>("username").unwrap().unwrap(),
                 settings: settings.settings,
                 settings_update_time: settings.settings_update_time,
             };
-            let res = state.lock().unwrap().db_client
-                .insert_user(settings)
-                .await;
+            let res = state.lock().unwrap().db_client.insert_user(settings).await;
             match res {
                 Ok(_) => succes("message", "new settings was succesfully saved"),
                 Err(_) => {
@@ -287,19 +293,27 @@ async fn set_user_settings(session: Session, req_body: String, state: Data<Mutex
         }
     }
 }
-async fn  order_dish(req_body: String, state: Data<Mutex<AppState>>, session: Session) -> impl Responder {
+async fn order_dish(
+    req_body: String,
+    state: Data<Mutex<AppState>>,
+    session: Session,
+) -> impl Responder {
     match serde_json::from_str::<OrderDishRequestBody>(req_body.as_str()) {
         Ok(dish_info) => {
-            match state.lock().unwrap().strava_clients.get(&session.get::<String>("id").unwrap().unwrap()).
-            unwrap()
+            match state
+                .lock()
+                .unwrap()
+                .strava_clients
+                .get_mut(&session.get::<String>("session_id").unwrap().unwrap())
+                .unwrap()
                 .order_dish(dish_info.id, dish_info.status)
                 .await
             {
-                Ok(_) => {
-                    return succes("message", "dish was succesfully ordered");
+                Ok(account) => {
+                    return succes("account", &format!("{}",account));
                 }
                 Err(res) => {
-                    return  server_error(&res);
+                    return server_error(&res.replace("\r\n", " "));
                 }
             }
         }
@@ -310,7 +324,15 @@ async fn  order_dish(req_body: String, state: Data<Mutex<AppState>>, session: Se
     }
 }
 async fn save_orders(state: Data<Mutex<AppState>>, session: Session) -> impl Responder {
-    match state.lock().unwrap().strava_clients.get(&session.get::<String>("id").unwrap().unwrap()).unwrap().save_orders().await {
+    match state
+        .lock()
+        .unwrap()
+        .strava_clients
+        .get(&session.get::<String>("session_id").unwrap().unwrap())
+        .unwrap()
+        .save_orders()
+        .await
+    {
         Ok(_) => {
             return succes("message", "orders was succesfully saved");
         }
@@ -321,7 +343,10 @@ async fn save_orders(state: Data<Mutex<AppState>>, session: Session) -> impl Res
 }
 async fn get_cantine_history(path: Path<String>, state: Data<Mutex<AppState>>) -> impl Responder {
     let cantine_id = path.into_inner();
-    let history = state.lock().unwrap().db_client
+    let history = state
+        .lock()
+        .unwrap()
+        .db_client
         .get_cantine(&cantine_id)
         .await;
     match history {
@@ -339,7 +364,11 @@ async fn get_cantine_history(path: Path<String>, state: Data<Mutex<AppState>>) -
 }
 async fn logout(session: Session, state: Data<Mutex<AppState>>) -> impl Responder {
     let username = session.get::<String>("username").unwrap().unwrap();
-    state.lock().unwrap().strava_clients.remove(&session.get::<String>("id").unwrap().unwrap());
+    state
+        .lock()
+        .unwrap()
+        .strava_clients
+        .remove(&session.get::<String>("session_id").unwrap().unwrap());
     session.purge();
     return HttpResponse::Ok().body(format!(r#"{{"status":"logged out","name":{}}}"#, username));
 }

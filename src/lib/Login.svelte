@@ -13,17 +13,16 @@
 	async function submit() {
 		let res = await login(username, value, cantine, stayLogged);
 		console.log(res);
-		switch (res._t)
-		{
+		switch (res._t) {
 			case 'success':
-				localStorage.setItem('username', res.data);
+				sessionStorage.setItem('username', res.data.username);
+				sessionStorage.setItem('account', res.data.account.toString(10));
 				goto('/objednavky');
 				break;
 			case 'failure':
 				message = res.error;
 				break;
 		}
-		
 	}
 
 	function onPasswordInput(e: Event) {
@@ -68,7 +67,7 @@
 				<input
 					{type}
 					{value}
-					class="dark:dark-mode-autofill bg-slate-800 text-white border-none flex-grow focus-within:border-none focus-within:ring-0"
+					class="dark:dark-mode-autofill bg-slate-800 text-white border-none flex-grow focus-within:border-none focus-within:ring-0 focus-within:outline-none"
 					name="password"
 					id="password"
 					on:input={onPasswordInput}
@@ -79,7 +78,24 @@
 					type="button"
 					on:click={showPassword}
 					tabindex="-1"
-					>{show_password ? 'Hide' : 'Show'}
+				>
+					<svg
+						class="w-6 h-6 text-gray-800 dark:text-white"
+						aria-hidden="true"
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke="currentColor"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d={show_password
+								? 'M4 14c-.5-.6-.9-1.3-1-2 0-1 4-6 9-6m7.6 3.8A5 5 0 0 1 21 12c0 1-3 6-9 6h-1m-6 1L19 5m-4 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z'
+								: 'M21 12c0 1.2-4 6-9 6s-9-4.8-9-6c0-1.2 4-6 9-6s9 4.8 9 6Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z'}
+						/>
+					</svg>
 				</button>
 			</div>
 			<div class="flex-row mt-2">

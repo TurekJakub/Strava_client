@@ -157,3 +157,8 @@ pub struct OrderDishRequestBody {
 pub struct Config {
     pub settings: HashMap<String, String>,
 }
+#[derive(Deserialize, Serialize)]
+pub struct UserInfo {
+    pub username: String,
+    pub account: f64,
+}

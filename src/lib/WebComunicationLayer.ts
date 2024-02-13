@@ -7,7 +7,7 @@ const login = async (
 	value: string,
 	cantine: number,
 	stayLogged: boolean
-): Promise<Result<string,string>> => {
+): Promise<Result<User, string>> => {
 	const user = {
 		jmeno: username,
 		heslo: value,
@@ -24,18 +24,16 @@ const login = async (
 			'Content-Type': 'application/json;charset=UTF-8'
 		},
 		body: JSON.stringify(user)
-	})
-    if (res.status === 200) {
-        let c =  await res.json();
-        return { _t: "success", data: (c as LoginResponse).user };
-    }
-    else {
-        let c =  await res.json();
-        return { _t: "failure", error: (c as ErrorResponse).message };
-    }
-		
+	});
+	if (res.status === 200) {
+		let data = await res.json();
+		return { _t: 'success', data: (data as LoginResponse).user };
+	} else {
+		let error = await res.json();
+		return { _t: 'failure', error: (error as ErrorResponse).message };
+	}
 };
-const getUserMenu = async (): Promise<Result<Menu,string>> => {
+const getUserMenu = async (): Promise<Result<Menu, string>> => {
 	let res = await fetch('http://localhost:8080/user_menu', {
 		method: 'GET',
 		credentials: 'include',
@@ -43,17 +41,16 @@ const getUserMenu = async (): Promise<Result<Menu,string>> => {
 			// 'csrf-token': 'nocheck',
 			'Content-Type': 'application/json;charset=UTF-8'
 		}
-	})
-    if (res.status === 200) {
-        let menu =  await res.json();
-        return { _t: "success", data: (menu as MenuResponse).menu};
-    }else {
-        let err =  await res.json();
-        return { _t: "failure", error: (err as ErrorResponse).message };
-    }    
-    
-}
-const orderDish = async (dishId: string, status: boolean): Promise<Result<void,string>> => {
+	});
+	if (res.status === 200) {
+		let menu = await res.json();
+		return { _t: 'success', data: (menu as MenuResponse).menu };
+	} else {
+		let err = await res.json();
+		return { _t: 'failure', error: (err as ErrorResponse).message };
+	}
+};
+const orderDish = async (dishId: string, status: boolean): Promise<Result<number, string>> => {
 	let res = await fetch('http://localhost:8080/order_dish', {
 		method: 'POST',
 		credentials: 'include',
@@ -62,13 +59,29 @@ const orderDish = async (dishId: string, status: boolean): Promise<Result<void,s
 			'Content-Type': 'application/json;charset=UTF-8'
 		},
 		body: JSON.stringify({ id: dishId, status: status })
-	})
+	});
 	if (res.status !== 200) {
-		let c =  await res.json();
-		return { _t: "failure", error: (c as ErrorResponse).message };
+		let error = await res.json();
+		return { _t: 'failure', error: (error as ErrorResponse).message };
 	}
-	return { _t: "success", data: undefined };
-}
+	let account = (await res.json() as OrderDishResponse).account;
+	return { _t: 'success', data: account };
+};
+const saveOrder = async (): Promise<Result<void, string>> => {
+	let res = await fetch('http://localhost:8080/save_orders', {
+		method: 'POST',
+		credentials: 'include',
+		headers: {
+			// 'csrf-token': 'nocheck',
+			'Content-Type': 'application/json;charset=UTF-8'
+		}
+	});
+	if (res.status !== 200) {
+		let error = await res.json();
+		return { _t: 'failure', error: (error as ErrorResponse).message };
+	}
+	return { _t: 'success', data: undefined };
+};
 const logout = async (): Promise<void> => {
 	await fetch('http://localhost:8080/logout', {
 		method: 'POST',
@@ -77,6 +90,7 @@ const logout = async (): Promise<void> => {
 			// 'csrf-token': 'nocheck',
 			'Content-Type': 'application/json;charset=UTF-8'
 		}
-	})
-}
-export { login, getUserMenu, orderDish, logout };
+	});
+};
+
+export { login, getUserMenu, orderDish, saveOrder, logout };

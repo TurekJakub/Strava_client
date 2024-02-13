@@ -1,11 +1,11 @@
 use std::{collections::HashMap, time::SystemTime};
 
-use crate::data_struct::{Date, DishInfo, OrdersCancelingSettings, User};
+use crate::data_struct::{Date, DishInfo, OrdersCancelingSettings, User, UserInfo};
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use reqwest::{Client, Response};
 use scraper::Html;
-use serde_json::{Value,Map};
+use serde_json::{Map, Value};
 
 pub struct RequestBuilder {
     client: Client,
@@ -23,7 +23,7 @@ impl RequestBuilder {
         }
     }
     // authenticate user and retun errors if occured
-    pub async fn  do_login_request(&self, user: &User<'_>) -> Result<String, String> {
+    pub async fn do_login_request(&self, user: &User<'_>) -> Result<UserInfo, String> {
         self.do_get("https://app.strava.cz/prihlasit-se?jidelna")
             .await;
         match self
@@ -45,7 +45,17 @@ impl RequestBuilder {
                         .set(res_json.get("s5url").unwrap().as_str().unwrap().to_string())
                         .unwrap();
                     self.canteen_id.set(user.cantine.to_string()).unwrap();
-                    Ok(res_json.get("uzivatel").unwrap().get("jmeno").unwrap().as_str().unwrap().to_string())
+                    let user = res_json.get("uzivatel").unwrap().as_object().unwrap();
+                    Ok(UserInfo {
+                        username: user.get("jmeno").unwrap().as_str().unwrap().to_owned(),
+                        account: user
+                            .get("konto")
+                            .unwrap()
+                            .as_str()
+                            .unwrap()
+                            .parse()
+                            .unwrap(),
+                    })
                 }
                 _ => match res
                     .json::<serde_json::Value>()
@@ -108,7 +118,7 @@ impl RequestBuilder {
         let res = self.client.get(url).send();
         Html::parse_document(res.await.unwrap().text().await.unwrap().as_str())
     }
-    pub async fn do_order_dish_request(&self, dish_id: String, amount: u8) -> Result<(), String> {
+    pub async fn do_order_dish_request(&self, dish_id: &String, amount: u8) -> Result<f64, String> {
         match self
             .do_post_template(
                 "https://app.strava.cz/api/pridejJidloS5",
@@ -118,21 +128,36 @@ impl RequestBuilder {
             .await
         {
             Ok(res) => match res.status() {
-                reqwest::StatusCode::OK => Ok(()),
-                _ => {
-                    let x = serde_json::from_str::<Map<String,Value>>(&res.text().await.unwrap());
-                    match x {
-                        Ok(json) => {
-                            match json.get("message")  {
-                            Some(value) =>{
-                                return Err(value.as_str().unwrap().to_string());
+                reqwest::StatusCode::OK => {
+                    match serde_json::from_str::<Map<String, Value>>(&res.text().await.unwrap()) {
+                        Ok(json) => match json.get("konto") {
+                            Some(value) => {
+                                return Ok(value.as_str().unwrap().parse().unwrap());
                             }
-                            None => return Err("Došlo k chybě serveru, zkuste to znovu později".to_string())
+                            None => {
+                                return Err(
+                                    "Došlo k chybě serveru, zkuste to znovu později".to_string()
+                                )
                             }
+                        },
+                        Err(_) => {
+                            return Err("Došlo k chybě serveru, zkuste to znovu později".to_string())
                         }
-                        Err(_) => {return Err("Došlo k chybě serveru, zkuste to znovu později".to_string())}
                     }
                 }
+                _ => match serde_json::from_str::<Map<String, Value>>(&res.text().await.unwrap()) {
+                    Ok(json) => match json.get("message") {
+                        Some(value) => {
+                            return Err(value.as_str().unwrap().to_string());
+                        }
+                        None => {
+                            return Err("Došlo k chybě serveru, zkuste to znovu později".to_string())
+                        }
+                    },
+                    Err(_) => {
+                        return Err("Došlo k chybě serveru, zkuste to znovu později".to_string())
+                    }
+                },
             },
             Err(e) => return Err(e.to_string()),
         }

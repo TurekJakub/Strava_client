@@ -1,4 +1,4 @@
-type  DishInfo = {
+type DishInfo = {
 	id: string;
 	allergens: string[];
 	order_state: boolean;
@@ -6,13 +6,21 @@ type  DishInfo = {
 type OrderDishRequest = {
 	id: string;
 	status: boolean;
-}
+};
+type OrderDishResponse = {
+	account: number;
+};
 type LoginResponse = {
 	message: string;
-	user: string;
+	user: User;
 };
-type MenuResponse = { 
-    menu: Menu
+type User = {
+	username: string;
+	account: number;
+};
+
+type MenuResponse = {
+	menu: Menu;
 };
 type ErrorResponse = {
 	message: string;
@@ -25,14 +33,14 @@ type Failure<T> = {
 	_t: 'failure';
 	error: T;
 };
-type Result<T,R> = Success<T> | Failure<R>;
+type Result<T, R> = Success<T> | Failure<R>;
 type Menu = {
 	[key: string]: DailyMenu;
 };
 type DailyMenu = {
 	[key: string]: DishInfo;
 };
-type MenuData = { [key: string]: DailyMenu }
+type MenuData = { [key: string]: DailyMenu };
 declare module 'TauriComunicationLayer' {
 	export function login(
 		username: string,
@@ -49,5 +57,5 @@ declare module 'WebComunicationLayer' {
 		stayLogged: boolean
 	): Promise<Result>;
 	export function getUserMenu(): Promise<MenuData>;
-	export function orderDish(dishId: string, status: boolean): Promise<Result<void,string>>;
+	export function orderDish(dishId: string, status: boolean): Promise<Result<void, string>>;
 }

@@ -333,6 +333,7 @@ dependencies = [
  "futures-util",
  "indexmap 2.1.0",
  "mongodb",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",

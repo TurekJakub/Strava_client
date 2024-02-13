@@ -8,7 +8,7 @@
 
 	let menuData: MenuData = {}
 	let days: string[] = [];
-
+	let account: number  = parseFloat(sessionStorage.getItem('account')||'0');
 	onMount(async () => {
 	   let data = await getUserMenu();
 	   console.log(data);
@@ -25,10 +25,10 @@
 	});
 </script>
 
-<Navbar />
+<Navbar bind:accountValue={account} />
 
 {#key menuData}
-	<Menu  menuData={menuData } days={days} />
+	<Menu bind:account menuData={menuData } days={days} />
 {/key}
 
 

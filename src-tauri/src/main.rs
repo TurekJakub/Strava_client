@@ -8,7 +8,7 @@ use strava_client::data_struct::{Date, DishInfo, User, SettingsRequestBody, Orde
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
 
-static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
+static  CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
 /*
 static mut CACHE: OnceCell<
     IndexMap<String, IndexMap<String, IndexMap<String, (bool, String, Vec<String>)>>>,
@@ -63,7 +63,7 @@ async fn login(
 }
 #[tauri::command]
 async fn order_dish(dish_id: String, ordered: bool) -> Result<(), String> {
-    CLIENT.get().unwrap().order_dish(dish_id, ordered).await?;
+    CLIENT.get_mut().unwrap().order_dish(dish_id, ordered).await?;
     Ok(())
 }
 #[tauri::command]

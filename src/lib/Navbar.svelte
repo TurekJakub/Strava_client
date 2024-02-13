@@ -2,10 +2,13 @@
 	import {Dropdown, DropdownItem } from 'flowbite-svelte';
 	import { logout } from '$lib/WebComunicationLayer';
 	import { goto } from '$app/navigation';
+	import { writable } from 'svelte/store';
+	
 
 	let expanded: boolean = false;
-    $: username = localStorage.getItem('username') || 'Nepřihlášen';
-
+    $: username = sessionStorage.getItem('username') || 'Nepřihlášen';
+    export let accountValue: number;
+    $: account = accountValue;
 	async function saveOrders() {
 		// await invoke('save_orders');
 	}
@@ -57,6 +60,7 @@
 				href="/objednavky">Objednávky</a
 			>
 			<a class="dark:text-white mt-auto text-center mb-auto ms-2 me-auto" href="/">Nastavení</a>
+			<p class="me-2  ms-auto text-white">Zůstatek na vašem účtu: {account} Kč</p>
 		</div>
 	</div>
 </nav>

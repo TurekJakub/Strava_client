@@ -16,7 +16,7 @@
 		switch (res._t) {
 			case 'success':
 				sessionStorage.setItem('username', res.data.username);
-				sessionStorage.setItem('account', res.data.account.toString(10));
+				localStorage.setItem('account', res.data.account.toString(10));
 				goto('/objednavky');
 				break;
 			case 'failure':

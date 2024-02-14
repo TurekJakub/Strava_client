@@ -67,7 +67,7 @@ const orderDish = async (dishId: string, status: boolean): Promise<Result<number
 	let account = (await res.json() as OrderDishResponse).account;
 	return { _t: 'success', data: account };
 };
-const saveOrder = async (): Promise<Result<void, string>> => {
+const saveOrder = async (): Promise<Result<void, SaveFailureResponse>> => {
 	let res = await fetch('http://localhost:8080/save_orders', {
 		method: 'POST',
 		credentials: 'include',
@@ -78,7 +78,7 @@ const saveOrder = async (): Promise<Result<void, string>> => {
 	});
 	if (res.status !== 200) {
 		let error = await res.json();
-		return { _t: 'failure', error: (error as ErrorResponse).message };
+		return { _t: 'failure', error: (error as SaveFailureResponse) };
 	}
 	return { _t: 'success', data: undefined };
 };

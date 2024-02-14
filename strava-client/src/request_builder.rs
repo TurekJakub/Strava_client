@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::SystemTime};
+use std::{collections::HashMap, future::IntoFuture, time::SystemTime};
 
 use crate::data_struct::{Date, DishInfo, OrdersCancelingSettings, User, UserInfo};
 use indexmap::IndexMap;
@@ -171,9 +171,10 @@ impl RequestBuilder {
             )
             .await
         {
-            Ok(res) => match res.error_for_status() {
-                Ok(_) => Ok(()),
-                Err(e) => return Err(e.to_string()),
+            Ok(res) => match res.status().as_u16() {
+                200 => Ok(()),
+                500..=600=>{ Err(serde_json::from_str::<Map<String, Value>>(&res.text().await.unwrap()).unwrap().get("message").unwrap().as_str().unwrap().to_string())},
+                _ => Err("Došlo k chybě serveru, zkuste to znovu později".to_string()),
             },
             Err(e) => return Err(e),
         }

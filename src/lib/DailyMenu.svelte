@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { orderDish, saveOrder } from '$lib/WebComunicationLayer'; // change to TauriComunicationLayer for Tauri version
-	export let account: number;
+	import { account } from '../store';
+	import {onDestroy} from 'svelte';
 	export let date: string;
 	export let menu: DailyMenu;
 	export let error: string;
 
 	let selected: any[] = [];
-
+	
 	async function selectDish(e: Event) {
 		let name = (e.target as HTMLInputElement).value;
 		let keys = Object.keys(menu);
@@ -20,13 +21,14 @@
 		switch (res._t) {
 			case 'success':
 				console.log(res.data);
-				account = res.data;
+				$account = res.data.toString(10);
 				let saveRes = await saveOrder(); // Web version from changed import for Tauri version
 				switch(saveRes._t) {
 					case 'success':
 						break;
 					case 'failure':
-						error = saveRes.error;
+						error = saveRes.error.message;
+						$account = saveRes.error.account.toString(10);
 						break;
 				}
 				break;

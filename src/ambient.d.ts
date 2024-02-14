@@ -10,6 +10,10 @@ type OrderDishRequest = {
 type OrderDishResponse = {
 	account: number;
 };
+type SaveFailureResponse = {
+	message: string;
+	account: number;
+};
 type LoginResponse = {
 	message: string;
 	user: User;

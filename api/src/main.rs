@@ -328,7 +328,7 @@ async fn save_orders(state: Data<Mutex<AppState>>, session: Session) -> impl Res
         .lock()
         .unwrap()
         .strava_clients
-        .get(&session.get::<String>("session_id").unwrap().unwrap())
+        .get_mut(&session.get::<String>("session_id").unwrap().unwrap())
         .unwrap()
         .save_orders()
         .await
@@ -336,8 +336,8 @@ async fn save_orders(state: Data<Mutex<AppState>>, session: Session) -> impl Res
         Ok(_) => {
             return succes("message", "orders was succesfully saved");
         }
-        Err(_) => {
-            return server_error("server error occurred while saving orders");
+        Err(e) => {
+            return  HttpResponse::InternalServerError().body(format!(r#"{{"message":"{}", "account": "{}"}}"#, e.0.replace("\r\n", " "), e.1));
         }
     }
 }

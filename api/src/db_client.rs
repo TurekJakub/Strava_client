@@ -223,6 +223,7 @@ impl DbClient {
         database.collection("dishes")
     }
     /*
+    Get cantine histrory db query
     [
     doc! {
         "$match": doc! {
@@ -255,6 +256,51 @@ impl DbClient {
             },
             "cantine_history": doc! {
                 "$push": "$cantine_history"
+            }
+        }
+    }
+]
+ */
+/*
+Cantine history search db query
+[
+    doc! {
+        "$match": doc! {
+            "cantine_id": "0068"
+        }
+    },
+    doc! {
+        "$unwind": doc! {
+            "path": "$cantine_history",
+            "preserveNullAndEmptyArrays": false
+        }
+    },
+    doc! {
+        "$lookup": doc! {
+            "from": "dishes",
+            "localField": "cantine_history",
+            "foreignField": "_id",
+            "as": "dish"
+        }
+    },
+    doc! {
+        "$unwind": doc! {
+            "path": "$dish",
+            "preserveNullAndEmptyArrays": false
+        }
+    },
+    doc! {
+        "$match": doc! {
+            "dish.name": doc! {
+                "$regex": "Pol"
+            }
+        }
+    },
+    doc! {
+        "$group": doc! {
+            "_id": "$_id",
+            "name": doc! {
+                "$push": "$dish"
             }
         }
     }

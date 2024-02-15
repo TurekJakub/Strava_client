@@ -58,7 +58,7 @@
 				style="display: block;"
 				href="/objednavky">Objednávky</a
 			>
-			<a class="dark:text-white mt-auto text-center mb-auto ms-2 me-auto" href="/">Nastavení</a>
+			<a class="dark:text-white mt-auto text-center mb-auto ms-2 me-auto" href="/nastaveni">Nastavení</a>
 			<p class="me-2 hidden sm:block  ms-auto text-white">Zůstatek na vašem účtu: {$account} Kč</p>
 		</div>
 	</div>

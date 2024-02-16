@@ -1,6 +1,7 @@
-use actix_session::{storage::CookieSessionStore, Session, SessionExt, SessionMiddleware};
-use actix_web::{cookie::Key, test};
 use actix_cors::Cors;
+use actix_session::{storage::CookieSessionStore, Session, SessionExt, SessionMiddleware};
+use actix_web::web::Query;
+use actix_web::{cookie::Key, test};
 use actix_web::{
     guard::{fn_guard, Any, Get, GuardContext, Not, Post},
     http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
@@ -8,6 +9,7 @@ use actix_web::{
     web::{get, post, resource, route, Path},
     App, HttpResponse, HttpServer, Responder,
 };
+use futures_util::future::err;
 use rand::Rng;
 use serde_json::ser;
 use std::collections::HashMap;
@@ -17,7 +19,7 @@ use crate::crawler::Crawler;
 use db_client::DbClient;
 use std::sync::Mutex;
 use strava_client::data_struct::{
-    Config, OrderDishRequestBody, SettingsRequestBody, User, UserDBEntry,
+    Config, DBHistoryQueryUrlString, OrderDishRequestBody, SettingsRequestBody, User, UserDBEntry
 };
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
@@ -147,6 +149,10 @@ async fn main() -> Result<(), std::io::Error> {
             )
             .service(resource("/cantine_history/{cantine_id}").route(get().to(get_cantine_history)))
             .service(resource("/user_status").route(get().to(user_status)))
+            .service(
+                resource("/cantine_history_query")
+                    .route(get().to(cantine_history_query)),
+            )
     })
     .bind((
         env::var("IP_ADDRESS").unwrap(),
@@ -226,7 +232,11 @@ async fn login(req_body: String, session: Session, state: Data<Mutex<AppState>>)
                     session.insert("id", id.clone()).unwrap();
                     session.insert("session_id", session_id.clone()).unwrap();
                     session.insert("username", user.username.clone()).unwrap();
-                    state.lock().unwrap().strava_clients.insert(session_id, client);
+                    state
+                        .lock()
+                        .unwrap()
+                        .strava_clients
+                        .insert(session_id, client);
                     return HttpResponse::Ok().body(format!(
                         r#"{{"message":"succesfully logged in","user":{}}}"#,
                         serde_json::to_string(&user).unwrap()
@@ -248,7 +258,13 @@ async fn get_user_settings(session: Session, state: Data<Mutex<AppState>>) -> im
         .lock()
         .unwrap()
         .db_client
-        .get_settings(session.get::<String>("session_id").unwrap().unwrap().as_str())
+        .get_settings(
+            session
+                .get::<String>("session_id")
+                .unwrap()
+                .unwrap()
+                .as_str(),
+        )
         .await;
     match settings {
         Ok(settings) => match settings {
@@ -310,7 +326,7 @@ async fn order_dish(
                 .await
             {
                 Ok(account) => {
-                    return succes("account", &format!("{}",account));
+                    return succes("account", &format!("{}", account));
                 }
                 Err(res) => {
                     return server_error(&res.replace("\r\n", " "));
@@ -337,7 +353,11 @@ async fn save_orders(state: Data<Mutex<AppState>>, session: Session) -> impl Res
             return succes("message", "orders was succesfully saved");
         }
         Err(e) => {
-            return  HttpResponse::InternalServerError().body(format!(r#"{{"message":"{}", "account": "{}"}}"#, e.0.replace("\r\n", " "), e.1));
+            return HttpResponse::InternalServerError().body(format!(
+                r#"{{"message":"{}", "account": "{}"}}"#,
+                e.0.replace("\r\n", " "),
+                e.1
+            ));
         }
     }
 }
@@ -360,6 +380,28 @@ async fn get_cantine_history(path: Path<String>, state: Data<Mutex<AppState>>) -
             }
         },
         Err(_) => server_error("server error occurred while loading cantine data"),
+    }
+}
+async fn cantine_history_query(
+    query: Query<DBHistoryQueryUrlString>,
+    state: Data<Mutex<AppState>>,
+) -> impl Responder {
+    let query_string = query.into_inner();
+    let history = state
+        .lock()
+        .unwrap()
+        .db_client
+        .query_cantine_history(&query_string.cantine_id, &query_string.query)
+        .await;
+    match history {
+        Ok(data) => {
+            println!("{:?}", data);
+            return succes("result", serde_json::to_string(&data).unwrap().as_str());
+        }
+        Err(e) => {
+            println!("{:?}", e);
+            return server_error("Došlo k chybě při načítaní dat z databáze");
+        }
     }
 }
 async fn logout(session: Session, state: Data<Mutex<AppState>>) -> impl Responder {

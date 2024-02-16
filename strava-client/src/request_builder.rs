@@ -55,6 +55,7 @@ impl RequestBuilder {
                             .unwrap()
                             .parse()
                             .unwrap(),
+                        cantine: user.get("cislo").unwrap().as_str().unwrap().to_owned(),
                     })
                 }
                 _ => match res

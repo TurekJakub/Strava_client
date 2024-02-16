@@ -1,5 +1,6 @@
-use bson::Document;
 use bson::oid::ObjectId;
+use bson::{Document, Regex};
+use futures_util::io::Cursor;
 use futures_util::stream::StreamExt;
 
 use mongodb::options::{AuthMechanism, Tls, TlsOptions};
@@ -8,10 +9,9 @@ use mongodb::{bson::doc, options::ClientOptions, Client, Collection};
 
 use std::env;
 use std::path::PathBuf;
-
 use std::time::SystemTime;
 use strava_client::data_struct::{
-    CantineDBEntry, DishDBEntry, OrdersCancelingSettings, UserDBEntry,
+    CantineDBEntry, DBHistoryQuery, DishDBEntry, OrdersCancelingSettings, UserDBEntry,
 };
 
 pub struct DbClient {
@@ -60,9 +60,7 @@ impl DbClient {
     }
     async fn get_user(&self, id: &str) -> Result<Option<UserDBEntry>, mongodb::error::Error> {
         let collection = self.get_users_collection().await;
-        let user = collection
-            .find_one(doc! { "id": id }, None)
-            .await;
+        let user = collection.find_one(doc! { "id": id }, None).await;
         user
     }
     async fn create_user(&self, user: UserDBEntry) -> Result<(), mongodb::error::Error> {
@@ -130,20 +128,22 @@ impl DbClient {
                 None,
             )
             .await?;
-         match result.next().await  {
-            Some(doc) => { let doc: CantineDBEntry  =bson::from_document(doc?)?;
-                collection.update_one(
-                    doc! { "cantine_id": cantine_id },
-                    doc! {
-                            "$set": doc! { "cantine_history": doc.cantine_history }
-                    },
-                    None,
-                ).await?;
+        match result.next().await {
+            Some(doc) => {
+                let doc: CantineDBEntry = bson::from_document(doc?)?;
+                collection
+                    .update_one(
+                        doc! { "cantine_id": cantine_id },
+                        doc! {
+                                "$set": doc! { "cantine_history": doc.cantine_history }
+                        },
+                        None,
+                    )
+                    .await?;
                 Ok(())
             }
-            None => Ok(())
+            None => Ok(()),
         }
-       
     }
     pub async fn insert_cantine(
         &self,
@@ -187,27 +187,34 @@ impl DbClient {
         for dish in dishes {
             match self.insert_dish(&dish).await? {
                 Some(id) => updated.push(id),
-                None => {
-                   match self.get_dish_id(&dish.name, &dish.allergens).await {
-                        Ok(Some(id)) => updated.push(id),
-                        Ok(None) => continue,
-                        Err(_) => continue,
-                   }
-                }
+                None => match self.get_dish_id(&dish.name, &dish.allergens).await {
+                    Ok(Some(id)) => updated.push(id),
+                    Ok(None) => continue,
+                    Err(_) => continue,
+                },
             }
         }
         Ok(updated)
     }
-    pub async fn get_dish_id(&self, name: &String, allergens: &Vec<String> ) -> Result<Option<ObjectId>, mongodb::error::Error> {
-        let collection:Collection<Document> =  self.client.database("strava").collection("dishes");
-        let dish = collection.find_one(doc! {"name": name, "allergens": allergens}, None).await?;
+    pub async fn get_dish_id(
+        &self,
+        name: &String,
+        allergens: &Vec<String>,
+    ) -> Result<Option<ObjectId>, mongodb::error::Error> {
+        let collection: Collection<Document> = self.client.database("strava").collection("dishes");
+        let dish = collection
+            .find_one(doc! {"name": name, "allergens": allergens}, None)
+            .await?;
         match dish {
             Some(dish) => Ok(Some(dish.get_object_id("_id").unwrap().clone())),
-            None => Ok(None)
+            None => Ok(None),
         }
     }
-    pub async fn get_cantine_history(&self,cantine_id: &str) -> Result<Vec<DishDBEntry>, mongodb::error::Error> {
-      // TODO write aggregation
+    pub async fn get_cantine_history(
+        &self,
+        cantine_id: &str,
+    ) -> Result<Vec<DishDBEntry>, mongodb::error::Error> {
+        // TODO write aggregation
         Ok(Vec::new())
     }
     async fn get_users_collection(&self) -> Collection<UserDBEntry> {
@@ -223,90 +230,123 @@ impl DbClient {
         database.collection("dishes")
     }
     /*
-    Get cantine histrory db query
-    [
-    doc! {
-        "$match": doc! {
-            "cantine_id": cantine_id
-        }
-    },
-    doc! {
-        "$unwind": doc! {
-            "path": "$cantine_history"
-        }
-    },
-    doc! {
-        "$lookup": doc! {
-            "from": "dishes",
-            "localField": "cantine_history",
-            "foreignField": "_id",
-            "as": "dish"
-        }
-    },
-    doc! {
-        "$unwind": doc! {
-            "path": "$dish"
-        }
-    },
-    doc! {
-        "$group": doc! {
-            "_id": "$_id",
-            "dishes": doc! {
-                "$push": "$dish"
-            },
-            "cantine_history": doc! {
-                "$push": "$cantine_history"
+        Get cantine histrory db query
+        [
+        doc! {
+            "$match": doc! {
+                "cantine_id": cantine_id
             }
+        },
+        doc! {
+            "$unwind": doc! {
+                "path": "$cantine_history"
+            }
+        },
+        doc! {
+            "$lookup": doc! {
+                "from": "dishes",
+                "localField": "cantine_history",
+                "foreignField": "_id",
+                "as": "dish"
+            }
+        },
+        doc! {
+            "$unwind": doc! {
+                "path": "$dish"
+            }
+        },
+        doc! {
+            "$group": doc! {
+                "_id": "$_id",
+                "dishes": doc! {
+                    "$push": "$dish"
+                },
+                "cantine_history": doc! {
+                    "$push": "$cantine_history"
+                }
+            }
+        }
+    ]
+     */
+    pub async fn query_cantine_history(
+        &self,
+        cantine_id: &str,
+        query: &str,
+    ) -> Result<Vec<DishDBEntry>, String> {
+        let reslut_stream = self
+            .get_cantines_collection()
+            .await
+            .aggregate(
+                [
+                    doc! {
+                        "$match": doc! {
+                            "cantine_id": cantine_id
+                        }
+                    },
+                    doc! {
+                        "$unwind": doc! {
+                            "path": "$cantine_history",
+                            "preserveNullAndEmptyArrays": false
+                        }
+                    },
+                    doc! {
+                        "$lookup": doc! {
+                            "from": "dishes",
+                            "localField": "cantine_history",
+                            "foreignField": "_id",
+                            "as": "dish"
+                        }
+                    },
+                    doc! {
+                        "$unwind": doc! {
+                            "path": "$dish",
+                            "preserveNullAndEmptyArrays": false
+                        }
+                    },
+                    doc! {
+                        "$match": doc! {
+                            "dish.name": doc! {
+                                "$regex": Regex { pattern: input_to_regex_string(query), options: "i".to_string() }
+                        }
+                    }
+                    },
+                    doc! {
+                        "$group": doc! {
+                            "_id": "id",
+                            "dishes": doc! {
+                                "$push": "$dish"
+                            }
+                        }
+                    },
+                ],
+                None,
+            )
+            .await;
+        match reslut_stream {
+            Ok(mut stream) => {
+                let result_option = stream.next().await;
+                match result_option {
+                    Some(result) => match result {
+                        Ok(doc) => match bson::from_document::<DBHistoryQuery>(doc) {
+                            Ok(results) => Ok(results.dishes),
+                            Err(e) => {
+                                return Err(e.to_string());
+                            }
+                        },
+                        Err(e) => {
+                            return Err(e.to_string());
+                        }
+                    },
+                    None => {
+                        return Ok(Vec::new());
+                    }
+                }
+            }
+            Err(e) => Err(e.to_string()),
         }
     }
-]
- */
-/*
-Cantine history search db query
-[
-    doc! {
-        "$match": doc! {
-            "cantine_id": "0068"
-        }
-    },
-    doc! {
-        "$unwind": doc! {
-            "path": "$cantine_history",
-            "preserveNullAndEmptyArrays": false
-        }
-    },
-    doc! {
-        "$lookup": doc! {
-            "from": "dishes",
-            "localField": "cantine_history",
-            "foreignField": "_id",
-            "as": "dish"
-        }
-    },
-    doc! {
-        "$unwind": doc! {
-            "path": "$dish",
-            "preserveNullAndEmptyArrays": false
-        }
-    },
-    doc! {
-        "$match": doc! {
-            "dish.name": doc! {
-                "$regex": "Pol"
-            }
-        }
-    },
-    doc! {
-        "$group": doc! {
-            "_id": "$_id",
-            "name": doc! {
-                "$push": "$dish"
-            }
-        }
-    }
-]
- */
 }
+
 async fn connect() -> Result<mongodb::Client, mongodb::error::Error> {
     dotenv::dotenv().ok();
     let mut client_options = ClientOptions::parse(env::var("CONNECTION_STRING").unwrap()).await?;
@@ -322,3 +362,33 @@ async fn connect() -> Result<mongodb::Client, mongodb::error::Error> {
     let client = Client::with_options(client_options)?;
     Ok(client)
 }
+fn input_to_regex_string(input: &str) -> String {
+    let str = replace_multiple(
+        &input.to_lowercase(),
+        vec![
+            ("a", "[a,á]"),
+            ("e", "[e,é,ě]"),
+            ("y", "[y,ý]"),
+            ("n", "[n,ň]"),
+            ("c", "[c,č]"),
+            ("r", "[r,ř]"),
+            ("z", "[z,ž]"),
+            ("s", "[s,š]"),
+            ("t", "[t,ť]"),
+            ("d", "[d,ď]"),
+            ("u", "[u,ů,ú]"),
+            ("i", "[i,í]"),
+            ("o", "[o,ó]"),
+        ],
+    );
+    println!("{}", str);
+    format!("^{}", str.trim())
+}
+fn replace_multiple(input: &str, replacements: Vec<(&str, &str)>) -> String {
+    let mut result = input.to_string();
+    for (from, to) in replacements {
+        result = result.replace(from, to);
+    }
+    result
+}
+

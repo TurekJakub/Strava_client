@@ -161,4 +161,15 @@ pub struct Config {
 pub struct UserInfo {
     pub username: String,
     pub account: f64,
+    pub cantine: String,
+}
+#[derive(Deserialize, Serialize)]
+pub struct DBHistoryQuery {
+    pub _id: String,
+    pub dishes: Vec<DishDBEntry>,
+}
+#[derive(Deserialize, Serialize)]
+pub struct DBHistoryQueryUrlString {
+    pub cantine_id: String,
+    pub query: String,
 }

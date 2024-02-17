@@ -6,11 +6,11 @@
 	import { goto } from '$app/navigation';
 	import {getUserMenu} from '$lib/WebComunicationLayer';
 
-	let menuData: MenuData = {}
+	export let menuData: MenuData = {}
 	let days: string[] = [];
 	onMount(async () => {
+		// TODO: move data fetching to login component
 	   let data = await getUserMenu();
-	   console.log(data);
 	   switch (data._t) {
 		   case 'success':
 			   menuData = data.data;

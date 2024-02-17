@@ -147,10 +147,9 @@ async fn main() -> Result<(), std::io::Error> {
                     )
                     .default_service(route().to(unauthorized)),
             )
-            .service(resource("/cantine_history/{cantine_id}").route(get().to(get_cantine_history)))
             .service(resource("/user_status").route(get().to(user_status)))
             .service(
-                resource("/cantine_history_query")
+                resource("/cantine_history")
                     .route(get().to(cantine_history_query)),
             )
     })
@@ -183,11 +182,11 @@ async fn user_status(session: Session) -> impl Responder {
         }
     }
 }
-async fn update_time() -> impl Responder {
+async fn update_time(session: Session) -> impl Responder {
     let time = DB_CLIENT
         .get_or_init(|| async { DbClient::new().await.unwrap() })
         .await
-        .get_settings_update_time("test")
+        .get_settings_update_time(session.get::<String>("id").unwrap().unwrap().as_str())
         .await;
     match time {
         Ok(time) => match time {
@@ -361,6 +360,7 @@ async fn save_orders(state: Data<Mutex<AppState>>, session: Session) -> impl Res
         }
     }
 }
+/*
 async fn get_cantine_history(path: Path<String>, state: Data<Mutex<AppState>>) -> impl Responder {
     let cantine_id = path.into_inner();
     let history = state
@@ -382,6 +382,7 @@ async fn get_cantine_history(path: Path<String>, state: Data<Mutex<AppState>>) -
         Err(_) => server_error("server error occurred while loading cantine data"),
     }
 }
+*/
 async fn cantine_history_query(
     query: Query<DBHistoryQueryUrlString>,
     state: Data<Mutex<AppState>>,

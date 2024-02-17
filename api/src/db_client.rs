@@ -381,8 +381,8 @@ fn input_to_regex_string(input: &str) -> String {
             ("o", "[o,ó]"),
         ],
     );
-    println!("{}", str);
-    format!("^{}", str.trim())
+   // format!("^{}", str.trim())
+   str.trim().to_string()
 }
 fn replace_multiple(input: &str, replacements: Vec<(&str, &str)>) -> String {
     let mut result = input.to_string();

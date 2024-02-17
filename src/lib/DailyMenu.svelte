@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { orderDish, saveOrder } from '$lib/WebComunicationLayer'; // change to TauriComunicationLayer for Tauri version
-	import { account } from '../store';
+	import { account } from './store';
 	import {onDestroy} from 'svelte';
 	export let date: string;
 	export let menu: DailyMenu;

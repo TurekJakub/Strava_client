@@ -3,6 +3,10 @@ type DishInfo = {
 	allergens: string[];
 	order_state: boolean;
 };
+type Dish = {
+	name: string;
+	allergens: string[];
+}
 type OrderDishRequest = {
 	id: string;
 	status: boolean;

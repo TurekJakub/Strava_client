@@ -2,11 +2,8 @@
 	import {Dropdown, DropdownItem } from 'flowbite-svelte';
 	import { logout } from '$lib/WebComunicationLayer';
 	import { goto } from '$app/navigation';
-	import { writable } from 'svelte/store';
-	import {account} from '../store';
-
-	let expanded: boolean = false;
-    $: username = sessionStorage.getItem('username') || 'Nepřihlášen';
+	import {username} from '$lib/store';
+	import {account} from '$lib/store';
 
 	async function saveOrders() {
 		// await invoke('save_orders');
@@ -42,10 +39,10 @@
 						stroke-linejoin="round"
 						d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
 					/>
-				</svg><p class="mt-auto mb-auto">{username}</p></button
+				</svg><p class="mt-auto mb-auto">{$username}</p></button
 			>
-			{#key username}
-			{#if username != 'Nepřihlášen'}
+			{#key $username}
+			{#if $username != 'Nepřihlášen'}
 			<Dropdown class="bg-slate-800 rounded-md border border-white" triggeredBy="#user_button">
 				<DropdownItem><button on:click={logoutHandler}><p class="mx-9 text-white">Odhlásit</p></button></DropdownItem>
 			</Dropdown>

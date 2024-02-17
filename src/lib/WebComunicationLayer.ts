@@ -64,7 +64,7 @@ const orderDish = async (dishId: string, status: boolean): Promise<Result<number
 		let error = await res.json();
 		return { _t: 'failure', error: (error as ErrorResponse).message };
 	}
-	let account = (await res.json() as OrderDishResponse).account;
+	let account = ((await res.json()) as OrderDishResponse).account;
 	return { _t: 'success', data: account };
 };
 const saveOrder = async (): Promise<Result<void, SaveFailureResponse>> => {
@@ -78,7 +78,7 @@ const saveOrder = async (): Promise<Result<void, SaveFailureResponse>> => {
 	});
 	if (res.status !== 200) {
 		let error = await res.json();
-		return { _t: 'failure', error: (error as SaveFailureResponse) };
+		return { _t: 'failure', error: error as SaveFailureResponse };
 	}
 	return { _t: 'success', data: undefined };
 };
@@ -92,5 +92,26 @@ const logout = async (): Promise<void> => {
 		}
 	});
 };
-
-export { login, getUserMenu, orderDish, saveOrder, logout };
+const queryCantineHistory = async (
+	cantineId: string,
+	query: string
+): Promise<Result<[Dish], string>> => {
+	let url = `http://localhost:8080/cantine_history?cantine_id=${encodeURIComponent(
+		cantineId
+	)}&query=${encodeURIComponent(query)}`;
+	let res = await fetch(url, {
+		method: 'GET',
+		credentials: 'include',
+		headers: {
+			// 'csrf-token': 'nocheck
+		}
+	});
+	if (res.status !== 200) {
+		let error = await res.json();
+		return { _t: 'failure', error: (error as ErrorResponse).message };
+	}
+	type Response = { result: [Dish]};
+	let data = await res.json();
+	return { _t: 'success', data: (data as Response).result };
+};
+export { login, getUserMenu, orderDish, saveOrder, logout, queryCantineHistory };

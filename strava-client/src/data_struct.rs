@@ -161,7 +161,6 @@ pub struct Config {
 pub struct UserInfo {
     pub username: String,
     pub account: f64,
-    pub cantine: String,
 }
 #[derive(Deserialize, Serialize)]
 pub struct DBHistoryQuery {

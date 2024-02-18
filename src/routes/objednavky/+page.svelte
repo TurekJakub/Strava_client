@@ -6,18 +6,19 @@
 	import { goto } from '$app/navigation';
 	import {getUserMenu} from '$lib/WebComunicationLayer';
 
-	export let menuData: MenuData = {}
+	let menuData: MenuData = {}
 	let days: string[] = [];
 	onMount(async () => {
-		// TODO: move data fetching to login component
 	   let data = await getUserMenu();
 	   switch (data._t) {
 		   case 'success':
 			   menuData = data.data;
 			   days = Object.keys(menuData);
-			   console.log(menuData);
 			   break;
 		   case 'failure':
+		       goto('/login'); // TODO: show alert instead of redirect
+			   break;
+		   case 'unauthorized':
 			   goto('/login');
 			   break;
 	   }

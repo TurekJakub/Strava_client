@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Error from './Error.svelte';
-	import { login } from '$lib/WebComunicationLayer';
+	import { login, getUserMenu } from '$lib/WebComunicationLayer';
 	import { goto } from '$app/navigation';
-	import { cantine, username, account } from '$lib/store';
+	import { cantine, username, account} from '$lib/store';
 	let loading: boolean = false;
 	let userLogin: string;
 	let cantineId: number;
@@ -22,7 +22,6 @@
 				$username = res.data.username;
 				$account = res.data.account.toString(10);
 				$cantine = cantineId.toString(10);
-				// TODO: move fetching of user menu here and remove it from objednavky page 
 				goto('/objednavky');
 				break;
 			case 'failure':

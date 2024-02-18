@@ -33,6 +33,9 @@ type MenuResponse = {
 type ErrorResponse = {
 	message: string;
 };
+type SuccessResponse = {
+	message: string;
+};
 type Success<T> = {
 	_t: 'success';
 	data: T;
@@ -41,7 +44,10 @@ type Failure<T> = {
 	_t: 'failure';
 	error: T;
 };
-type Result<T, R> = Success<T> | Failure<R>;
+type Unauthorized = {
+	_t: 'unauthorized';
+};
+type Result<T, R> = Success<T> | Failure<R>| Unauthorized;
 type Menu = {
 	[key: string]: DailyMenu;
 };
@@ -49,6 +55,9 @@ type DailyMenu = {
 	[key: string]: DishInfo;
 };
 type MenuData = { [key: string]: DailyMenu };
+type QueryResponse<T> = {
+   result: T[];
+}
 declare module 'TauriComunicationLayer' {
 	export function login(
 		username: string,

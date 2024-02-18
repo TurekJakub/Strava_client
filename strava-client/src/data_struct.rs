@@ -168,7 +168,16 @@ pub struct DBHistoryQuery {
     pub dishes: Vec<DishDBEntry>,
 }
 #[derive(Deserialize, Serialize)]
+pub struct SettingsQuery {
+    pub _id: String,
+    pub query_result: Vec<String>,
+}
+#[derive(Deserialize, Serialize)]
 pub struct DBHistoryQueryUrlString {
     pub cantine_id: String,
+    pub query: String,
+}
+#[derive(Deserialize, Serialize)]
+pub struct SettingsQueryUrlString {
     pub query: String,
 }

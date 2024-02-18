@@ -3,7 +3,7 @@ export default {
   content: ['./src/**/*.{html,js,svelte,ts}'],
   darkMode: 'class',
   theme: {
-    extend: { opacity: ['disabled'],},
+    //extend: { opacity: ['disabled'],},
     borderWidth: {
       DEFAULT: '1px',
       0: '0',
@@ -13,5 +13,7 @@ export default {
       8: '8px',
     },
   },
+  plugins: [require('tailwind-scrollbar')({ nocompatible: true })],
+
 }
 

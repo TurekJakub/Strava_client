@@ -1,5 +1,6 @@
 use actix_cors::Cors;
 use actix_session::{storage::CookieSessionStore, Session, SessionExt, SessionMiddleware};
+use actix_web::guard;
 use actix_web::web::Query;
 use actix_web::{cookie::Key, test};
 use actix_web::{
@@ -13,18 +14,20 @@ use futures_util::future::err;
 use rand::Rng;
 use serde_json::ser;
 use std::collections::HashMap;
-use std::env;
+use std::{default, env};
 
 use crate::crawler::Crawler;
 use db_client::DbClient;
 use std::sync::Mutex;
 use strava_client::data_struct::{
-    Config, DBHistoryQueryUrlString, OrderDishRequestBody, SettingsRequestBody, User, UserDBEntry
+    Config, DBHistoryQueryUrlString, OrderDishRequestBody, SettingsQueryUrlString,
+    SettingsRequestBody, User, UserDBEntry,
 };
 use strava_client::strava_client::StravaClient;
 use tokio::sync::OnceCell;
 mod crawler;
 mod db_client;
+mod utilities;
 
 static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
 static DB_CLIENT: OnceCell<DbClient> = OnceCell::const_new();
@@ -148,9 +151,16 @@ async fn main() -> Result<(), std::io::Error> {
                     .default_service(route().to(unauthorized)),
             )
             .service(resource("/user_status").route(get().to(user_status)))
+            .service(resource("/cantine_history").route(get().to(cantine_history_query)))
             .service(
-                resource("/cantine_history")
-                    .route(get().to(cantine_history_query)),
+                resource("/settings_query")
+                    .route(get().guard(fn_guard(authorized_guard)).to(settings_query))
+                    .route(
+                        route()
+                            .guard(Not(Get()))
+                            .to(|| HttpResponse::MethodNotAllowed()),
+                    )
+                    .default_service(route().to(unauthorized)),
             )
     })
     .bind((
@@ -360,6 +370,35 @@ async fn save_orders(state: Data<Mutex<AppState>>, session: Session) -> impl Res
         }
     }
 }
+async fn settings_query(
+    query: Query<SettingsQueryUrlString>,
+    state: Data<Mutex<AppState>>,
+    session: Session,
+) -> impl Responder {
+    let query_string = query.into_inner();
+    let settings_query = state
+        .lock()
+        .unwrap()
+        .db_client
+        .query_settings(
+            session.get::<String>("id").unwrap().unwrap().as_str(),
+            &query_string.query,
+        )
+        .await;
+    match settings_query {
+        Ok(result) => match serde_json::to_string(&result) {
+            Ok(json) => {
+                return succes("result", &json);
+            }
+            Err(e) => {
+                return server_error("Došlo k chybě při načítaní dat z databáze");
+            }
+        },
+        Err(e) => {
+            return server_error("Došlo k chybě při načítaní dat z databáze");
+        }
+    }
+}
 /*
 async fn get_cantine_history(path: Path<String>, state: Data<Mutex<AppState>>) -> impl Responder {
     let cantine_id = path.into_inner();
@@ -413,7 +452,10 @@ async fn logout(session: Session, state: Data<Mutex<AppState>>) -> impl Responde
         .strava_clients
         .remove(&session.get::<String>("session_id").unwrap().unwrap());
     session.purge();
-    return HttpResponse::Ok().body(format!(r#"{{"status":"logged out","name":{}}}"#, username));
+    return succes(
+        "message",
+        &format!(r#""{} was succesfully logged out" "#, username),
+    );
 }
 async fn unauthorized() -> impl Responder {
     return HttpResponse::Unauthorized().body(format!(r#"{{"message":"action forbiden"}}"#,));

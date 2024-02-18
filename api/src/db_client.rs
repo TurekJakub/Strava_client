@@ -1,19 +1,19 @@
 use bson::oid::ObjectId;
 use bson::{Document, Regex};
-use futures_util::io::Cursor;
 use futures_util::stream::StreamExt;
 
 use mongodb::options::{AuthMechanism, Tls, TlsOptions};
 use mongodb::options::{Credential, UpdateOptions};
 use mongodb::{bson::doc, options::ClientOptions, Client, Collection};
 
+use crate::utilities::input_to_regex_string;
 use std::env;
 use std::path::PathBuf;
 use std::time::SystemTime;
 use strava_client::data_struct::{
-    CantineDBEntry, DBHistoryQuery, DishDBEntry, OrdersCancelingSettings, UserDBEntry,
+    CantineDBEntry, DBHistoryQuery, DishDBEntry, OrdersCancelingSettings, SettingsQuery,
+    UserDBEntry,
 };
-
 pub struct DbClient {
     client: mongodb::Client,
 }
@@ -345,8 +345,61 @@ impl DbClient {
             Err(e) => Err(e.to_string()),
         }
     }
+    pub async fn query_settings(&self, id: &str, query: &str) -> Result<Vec<String>, String> {
+        let results_stream = self.get_users_collection().await.aggregate([
+            doc! {
+                "$match": doc! {
+                    "id": id
+                }
+            },
+            doc! {
+                "$unwind": doc! {
+                    "path": "$settings.blacklisted_dishes",
+                    "preserveNullAndEmptyArrays": false
+                }
+            },
+            doc! {
+                "$match": doc! {
+                    "settings.blacklisted_dishes": doc! {
+                        "$regex": Regex { pattern: input_to_regex_string(query), options: "i".to_string() }
+                    }
+                }
+            },
+            doc! {
+                "$group": doc! {
+                    "_id": "_id",
+                    "results": doc! {
+                        "$push": "$settings.blacklisted_dishes"
+                    }
+                }
+            }
+        ], None).await;
+        match results_stream {
+            Ok(mut stream) => match stream.next().await {
+                Some(result) => match result {
+                    Ok(doc) => match bson::from_document::<SettingsQuery>(doc) {
+                        Ok(results) => return Ok(results.query_result),
+                        Err(e) => {
+                            return Err(e.to_string());
+                        }
+                    },
+                    Err(e) => {
+                        return Err(e.to_string());
+                    }
+                },
+                None => {
+                    return Ok(Vec::new());
+                }
+            },
+            Err(e) => Err(e.to_string()),
+        }
+    }
 }
 
+/*
+
+
+*/
 async fn connect() -> Result<mongodb::Client, mongodb::error::Error> {
     dotenv::dotenv().ok();
     let mut client_options = ClientOptions::parse(env::var("CONNECTION_STRING").unwrap()).await?;
@@ -362,33 +415,3 @@ async fn connect() -> Result<mongodb::Client, mongodb::error::Error> {
     let client = Client::with_options(client_options)?;
     Ok(client)
 }
-fn input_to_regex_string(input: &str) -> String {
-    let str = replace_multiple(
-        &input.to_lowercase(),
-        vec![
-            ("a", "[a,á]"),
-            ("e", "[e,é,ě]"),
-            ("y", "[y,ý]"),
-            ("n", "[n,ň]"),
-            ("c", "[c,č]"),
-            ("r", "[r,ř]"),
-            ("z", "[z,ž]"),
-            ("s", "[s,š]"),
-            ("t", "[t,ť]"),
-            ("d", "[d,ď]"),
-            ("u", "[u,ů,ú]"),
-            ("i", "[i,í]"),
-            ("o", "[o,ó]"),
-        ],
-    );
-   // format!("^{}", str.trim())
-   str.trim().to_string()
-}
-fn replace_multiple(input: &str, replacements: Vec<(&str, &str)>) -> String {
-    let mut result = input.to_string();
-    for (from, to) in replacements {
-        result = result.replace(from, to);
-    }
-    result
-}
-

@@ -1,6 +1,49 @@
-import { goto } from '$app/navigation';
-import { json } from '@sveltejs/kit';
-import { Card } from 'flowbite-svelte';
+const sendRequest = async <S, F, T, R>(
+	path: string,
+	method: string,
+	body: any,
+	failureAttribute: string,
+	successAttribute: string
+): Promise<Result<T, R>> => {
+	let request = {};
+	let url = `http://localhost:8080${path}`;
+	if (method === 'POST') {
+		request = {
+			method: method,
+			credentials: 'include',
+			headers: {
+				// 'csrf-token': 'nocheck',
+				'Content-Type': 'application/json;charset=UTF-8'
+			},
+			body: JSON.stringify(body)
+		};
+	} else {
+		request = {
+			method: method,
+			credentials: 'include',
+			headers: {
+				// 'csrf-token': 'nocheck',
+				'Content-Type': 'application/json;charset=UTF-8'
+			}
+		};
+	}
+	let res = await fetch(url, request);
+	if (res.status === 405) {
+		return { _t: 'unauthorized' };
+	}
+	if (res.status === 200) {
+		let data = await res.json();
+		if (successAttribute === '') {
+			return { _t: 'success', data: data as T };
+		}
+		return { _t: 'success', data: data[successAttribute as keyof S] };
+	}
+	let error = await res.json();
+	if (failureAttribute === '') {
+		return { _t: 'failure', error: error as R };
+	}
+	return { _t: 'failure', error: error[failureAttribute as keyof F] };
+};
 
 const login = async (
 	username: string,
@@ -15,103 +58,73 @@ const login = async (
 		zustatPrihlasen: stayLogged,
 		lang: 'CZ'
 	};
-
-	let res = await fetch('http://localhost:8080/login', {
-		method: 'POST',
-		credentials: 'include',
-		headers: {
-			//  'csrf-token': 'nocheck',
-			'Content-Type': 'application/json;charset=UTF-8'
-		},
-		body: JSON.stringify(user)
-	});
-	if (res.status === 200) {
-		let data = await res.json();
-		return { _t: 'success', data: (data as LoginResponse).user };
-	} else {
-		let error = await res.json();
-		return { _t: 'failure', error: (error as ErrorResponse).message };
-	}
+	return await sendRequest<LoginResponse, ErrorResponse, User, string>(
+		'/login',
+		'POST',
+		user,
+		'message',
+		'user'
+	);
 };
 const getUserMenu = async (): Promise<Result<Menu, string>> => {
-	let res = await fetch('http://localhost:8080/user_menu', {
-		method: 'GET',
-		credentials: 'include',
-		headers: {
-			// 'csrf-token': 'nocheck',
-			'Content-Type': 'application/json;charset=UTF-8'
-		}
-	});
-	if (res.status === 200) {
-		let menu = await res.json();
-		return { _t: 'success', data: (menu as MenuResponse).menu };
-	} else {
-		let err = await res.json();
-		return { _t: 'failure', error: (err as ErrorResponse).message };
-	}
+	return await sendRequest<MenuResponse, ErrorResponse, Menu, string>(
+		'/user_menu',
+		'GET',
+		{},
+		'message',
+		'menu'
+	);
 };
 const orderDish = async (dishId: string, status: boolean): Promise<Result<number, string>> => {
-	let res = await fetch('http://localhost:8080/order_dish', {
-		method: 'POST',
-		credentials: 'include',
-		headers: {
-			// 'csrf-token': 'nocheck',
-			'Content-Type': 'application/json;charset=UTF-8'
-		},
-		body: JSON.stringify({ id: dishId, status: status })
-	});
-	if (res.status !== 200) {
-		let error = await res.json();
-		return { _t: 'failure', error: (error as ErrorResponse).message };
-	}
-	let account = ((await res.json()) as OrderDishResponse).account;
-	return { _t: 'success', data: account };
+	return await sendRequest<OrderDishResponse, ErrorResponse, number, string>(
+		'/order_dish',
+		'POST',
+		{ id: dishId, status: status },
+		'message',
+		'account'
+	);
 };
-const saveOrder = async (): Promise<Result<void, SaveFailureResponse>> => {
-	let res = await fetch('http://localhost:8080/save_orders', {
-		method: 'POST',
-		credentials: 'include',
-		headers: {
-			// 'csrf-token': 'nocheck',
-			'Content-Type': 'application/json;charset=UTF-8'
-		}
-	});
-	if (res.status !== 200) {
-		let error = await res.json();
-		return { _t: 'failure', error: error as SaveFailureResponse };
-	}
-	return { _t: 'success', data: undefined };
+const saveOrder = async (): Promise<Result<string, SaveFailureResponse>> => {
+	return await sendRequest<SuccessResponse, SaveFailureResponse, string, SaveFailureResponse>(
+		'/save_orders',
+		'POST',
+		{},
+		'',
+		'message'
+	);
 };
 const logout = async (): Promise<void> => {
-	await fetch('http://localhost:8080/logout', {
-		method: 'POST',
-		credentials: 'include',
-		headers: {
-			// 'csrf-token': 'nocheck',
-			'Content-Type': 'application/json;charset=UTF-8'
-		}
-	});
+	await sendRequest<SuccessResponse, ErrorResponse, string, string>(
+		'/logout',
+		'POST',
+		{},
+		'message',
+		'message'
+	);
 };
 const queryCantineHistory = async (
 	cantineId: string,
 	query: string
-): Promise<Result<[Dish], string>> => {
-	let url = `http://localhost:8080/cantine_history?cantine_id=${encodeURIComponent(
+): Promise<Result<Dish[], string>> => {
+	let url = `/cantine_history?cantine_id=${encodeURIComponent(
 		cantineId
 	)}&query=${encodeURIComponent(query)}`;
-	let res = await fetch(url, {
-		method: 'GET',
-		credentials: 'include',
-		headers: {
-			// 'csrf-token': 'nocheck
-		}
-	});
-	if (res.status !== 200) {
-		let error = await res.json();
-		return { _t: 'failure', error: (error as ErrorResponse).message };
-	}
-	type Response = { result: [Dish]};
-	let data = await res.json();
-	return { _t: 'success', data: (data as Response).result };
+	return await sendRequest<QueryResponse<Dish>, ErrorResponse, Dish[], string>(
+		url,
+		'GET',
+		{},
+		'message',
+		'result'
+	);
 };
-export { login, getUserMenu, orderDish, saveOrder, logout, queryCantineHistory };
+const querySettings = async (query: string): Promise<Result<string[], string>> => {
+	let url = `/settings_query?query=${encodeURIComponent(query)}`;
+	return await sendRequest<QueryResponse<string>, ErrorResponse, string[], string>(
+		url,
+		'GET',
+		{},
+		'message',
+		'result'
+	);
+};
+export { login, getUserMenu, orderDish, saveOrder, logout, queryCantineHistory, querySettings };

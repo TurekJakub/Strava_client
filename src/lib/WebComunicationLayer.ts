@@ -5,44 +5,33 @@ const sendRequest = async <S, F, T, R>(
 	failureAttribute: string,
 	successAttribute: string
 ): Promise<Result<T, R>> => {
-	let request = {};
-	let url = `http://localhost:8080${path}`;
+	let request: any = {
+		method: method,
+		credentials: 'include',
+		headers: {
+			// 'csrf-token': 'nocheck',
+			'Content-Type': 'application/json;charset=UTF-8'
+		}
+	};
+	let url: string = `http://localhost:8080${path}`;
 	if (method === 'POST') {
-		request = {
-			method: method,
-			credentials: 'include',
-			headers: {
-				// 'csrf-token': 'nocheck',
-				'Content-Type': 'application/json;charset=UTF-8'
-			},
-			body: JSON.stringify(body)
-		};
-	} else {
-		request = {
-			method: method,
-			credentials: 'include',
-			headers: {
-				// 'csrf-token': 'nocheck',
-				'Content-Type': 'application/json;charset=UTF-8'
-			}
-		};
+		request.body = JSON.stringify(body);
 	}
 	let res = await fetch(url, request);
+	let data = await res.json();
 	if (res.status === 405) {
 		return { _t: 'unauthorized' };
 	}
 	if (res.status === 200) {
-		let data = await res.json();
 		if (successAttribute === '') {
 			return { _t: 'success', data: data as T };
 		}
 		return { _t: 'success', data: data[successAttribute as keyof S] };
 	}
-	let error = await res.json();
 	if (failureAttribute === '') {
-		return { _t: 'failure', error: error as R };
+		return { _t: 'failure', error: data as R };
 	}
-	return { _t: 'failure', error: error[failureAttribute as keyof F] };
+	return { _t: 'failure', error: data[failureAttribute as keyof F] };
 };
 
 const login = async (

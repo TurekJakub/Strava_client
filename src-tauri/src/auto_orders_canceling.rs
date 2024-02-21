@@ -3,7 +3,7 @@ struct OrdersCanceling {
     client: RequestBuilder,
 }
 impl OrdersCanceling {
-    pub fn new() -> Result<OrdersCanceling, String> {
+    pub fn new(request_builder: RequestBuilder) -> Result<OrdersCanceling, String> {
         Ok(OrdersCanceling {
             client: RequestBuilder::new(),
         })

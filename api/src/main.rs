@@ -1,20 +1,16 @@
 use actix_cors::Cors;
 use actix_session::{storage::CookieSessionStore, Session, SessionExt, SessionMiddleware};
-use actix_web::guard;
 use actix_web::web::Query;
-use actix_web::{cookie::Key, test};
 use actix_web::{
     guard::{fn_guard, Any, Get, GuardContext, Not, Post},
     http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
     web::Data,
-    web::{get, post, resource, route, Path},
-    App, HttpResponse, HttpServer, Responder,
+    web::{get, post, resource, route},
+    App, HttpResponse, HttpServer, Responder,cookie::Key
 };
-use futures_util::future::err;
 use rand::Rng;
-use serde_json::ser;
 use std::collections::HashMap;
-use std::{default, env};
+use std::env;
 
 use crate::crawler::Crawler;
 use db_client::DbClient;
@@ -24,13 +20,10 @@ use strava_client::data_struct::{
     SettingsRequestBody, User, UserDBEntry,
 };
 use strava_client::strava_client::StravaClient;
-use tokio::sync::OnceCell;
 mod crawler;
 mod db_client;
 mod utilities;
 
-static CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
-static DB_CLIENT: OnceCell<DbClient> = OnceCell::const_new();
 struct AppState {
     db_client: DbClient,
     strava_clients: HashMap<String, StravaClient>,
@@ -192,10 +185,8 @@ async fn user_status(session: Session) -> impl Responder {
         }
     }
 }
-async fn update_time(session: Session) -> impl Responder {
-    let time = DB_CLIENT
-        .get_or_init(|| async { DbClient::new().await.unwrap() })
-        .await
+async fn update_time(session: Session,state: Data<Mutex<AppState>>) -> impl Responder {
+    let time = state.lock().unwrap().db_client
         .get_settings_update_time(session.get::<String>("id").unwrap().unwrap().as_str())
         .await;
     match time {

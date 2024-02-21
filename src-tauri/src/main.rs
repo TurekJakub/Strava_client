@@ -1,43 +1,19 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use std::collections::HashSet;
 
-// use dotenv::dotenv; // debug only
 use indexmap::IndexMap;
-use strava_client::data_struct::{Date, DishInfo, User, SettingsRequestBody, OrdersCancelingSettings};
+use strava_client::data_struct::{Date, DishInfo, User, UserInfo};
 use strava_client::strava_client::StravaClient;
+use tokio::sync::Mutex;
 use tokio::sync::OnceCell;
 
-static  CLIENT: OnceCell<StravaClient> = OnceCell::const_new();
-/*
-static mut CACHE: OnceCell<
-    IndexMap<String, IndexMap<String, IndexMap<String, (bool, String, Vec<String>)>>>,
-> = OnceCell::new();
-*/
+static CLIENT: Mutex<OnceCell<StravaClient>> = Mutex::const_new(OnceCell::const_new());
+mod auto_orders_canceling;
 
 #[tauri::command]
 async fn get_menu_data() -> Result<(Vec<Date>, IndexMap<Date, IndexMap<String, DishInfo>>), String>
 {
-    /* debug only
-    dotenv().ok();
-    let username = std::env::var("STRAVA_USERNAME").unwrap();
-    let password = std::env::var("PASSWORD").unwrap();
-    let cantine = std::env::var("CANTINE").unwrap();
-    let u = User {
-        username: &username,
-        password: &password,
-        cantine: &cantine,
-        lang: "CZ",
-        stay_logged: false,
-    };
-    CLIENT
-    .get_or_init(|| async { StravaClient::new().await.unwrap() })
-    .await
-    .login(&u)
-    .await
-    .unwrap();
-    */
-    let menu = CLIENT.get().unwrap().get_menu().await?;
+    let menu = CLIENT.lock().await.get().unwrap().get_menu().await?; // TODO: solve proble with unordered map
     Ok((menu.keys().cloned().collect(), menu))
 }
 #[tauri::command]
@@ -46,59 +22,45 @@ async fn login(
     password: String,
     cantine: String,
     stay_logged: bool,
-) -> Result<(), String> {
+) -> Result<UserInfo, String> {
     let u = User {
         username: &username,
         password: &password,
         cantine: &cantine,
-        lang: "CZ",
-        stay_logged: stay_logged,
+        lang: "EN",
+        stay_logged: false,
     };
     CLIENT
+        .lock()
+        .await
         .get_or_init(|| async { StravaClient::new().await.unwrap() })
         .await
         .login(&u)
-        .await?;
-    Ok(())
+        .await
 }
 #[tauri::command]
-async fn order_dish(dish_id: String, ordered: bool) -> Result<(), String> {
-    CLIENT.get_mut().unwrap().order_dish(dish_id, ordered).await?;
-    Ok(())
+async fn order_dish(dish_id: String, ordered: bool) -> Result<f64, String> {
+    CLIENT
+        .lock()
+        .await
+        .get_mut()
+        .unwrap()
+        .order_dish(dish_id, ordered)
+        .await
 }
 #[tauri::command]
-async fn save_orders() -> Result<(), String> {
-    CLIENT.get().unwrap().save_orders().await?;
-    Ok(())
+async fn save_orders() -> Result<(), (String, f64)> {
+    CLIENT.lock().await.get_mut().unwrap().save_orders().await
 }
 #[tokio::main]
 async fn main() {
-    /*
-    let x = SettingsRequestBody{
-      settings: OrdersCancelingSettings{
-        balacklisted_allergens: Vec::from([1]),
-        blacklisted_dishes: Vec::from(["sekaná".to_owned()]),
-        strategy: "cancel".to_owned(),
-      },
-      settings_update_time: std::time::SystemTime::now(),
-    };
-    println!("{}", serde_json::to_string(&x).unwrap());
-    */
-
     tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![get_menu_data, login, order_dish, save_orders])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
-    /*
-    keytar::set_password("strava_client", "username", "password").unwrap();
-    keytar::set_password("strava_client", "username1", "password1").unwrap();
-    let x = keytar::find_password("strava_client").unwrap();
-    println!("{}", x.password);
-    println!(
-        "{}",
-        keytar::get_password("strava_client", "username")
-        .unwrap()
-        .password
-    )
-    */
+        .invoke_handler(tauri::generate_handler![
+            get_menu_data,
+            login,
+            order_dish,
+            save_orders
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

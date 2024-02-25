@@ -54,13 +54,13 @@ async fn save_orders() -> Result<(), (String, f64)> {
 }
 #[tokio::main]
 async fn main() {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![
-            get_menu_data,
-            login,
-            order_dish,
-            save_orders
+        tauri::Builder::default()
+    .invoke_handler(tauri::generate_handler![
+        get_menu_data,
+        login,
+        order_dish,
+        save_orders
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
+    }

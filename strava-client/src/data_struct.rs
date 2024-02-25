@@ -108,7 +108,8 @@ pub struct DishInfo {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrdersCancelingSettings {
     pub blacklisted_dishes: Vec<String>,
-    pub balacklisted_allergens: Vec<u8>,
+    pub whitelisted_dishes: Vec<String>,
+    pub blacklisted_allergens: Vec<String>,
     pub strategy: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]

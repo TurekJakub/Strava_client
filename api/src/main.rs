@@ -2,11 +2,12 @@ use actix_cors::Cors;
 use actix_session::{storage::CookieSessionStore, Session, SessionExt, SessionMiddleware};
 use actix_web::web::Query;
 use actix_web::{
+    cookie::Key,
     guard::{fn_guard, Any, Get, GuardContext, Not, Post},
     http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
     web::Data,
     web::{get, post, resource, route},
-    App, HttpResponse, HttpServer, Responder,cookie::Key
+    App, HttpResponse, HttpServer, Responder,
 };
 use rand::Rng;
 use std::collections::HashMap;
@@ -185,8 +186,11 @@ async fn user_status(session: Session) -> impl Responder {
         }
     }
 }
-async fn update_time(session: Session,state: Data<Mutex<AppState>>) -> impl Responder {
-    let time = state.lock().unwrap().db_client
+async fn update_time(session: Session, state: Data<Mutex<AppState>>) -> impl Responder {
+    let time = state
+        .lock()
+        .unwrap()
+        .db_client
         .get_settings_update_time(session.get::<String>("id").unwrap().unwrap().as_str())
         .await;
     match time {
@@ -232,11 +236,18 @@ async fn login(req_body: String, session: Session, state: Data<Mutex<AppState>>)
                     session.insert("id", id.clone()).unwrap();
                     session.insert("session_id", session_id.clone()).unwrap();
                     session.insert("username", user.username.clone()).unwrap();
-                    state
-                        .lock()
-                        .unwrap()
-                        .strava_clients
-                        .insert(session_id, client);
+
+                    // state.lock().unwrap().strava_clients.insert(session_id.clone(), client);
+
+                    
+                    let mut st = state.lock().unwrap();
+                    st.strava_clients.insert(session_id, client);
+                    let auto = strava_client::automatic_client::AutomaticStravaClient::new(
+                        st.db_client.get_settings(&id).await.unwrap().unwrap(),                                // TODO: rework this for production
+                        user_data,
+                    ).await.unwrap();
+                    auto.cancel_orders().await.unwrap();
+                    
                     return HttpResponse::Ok().body(format!(
                         r#"{{"message":"succesfully logged in","user":{}}}"#,
                         serde_json::to_string(&user).unwrap()

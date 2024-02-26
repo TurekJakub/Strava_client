@@ -19,7 +19,7 @@ const sendRequest = async <S, F, T, R>(
 	}
 	let res = await fetch(url, request);
 	let data = await res.json();
-	if (res.status === 405) {
+	if (res.status === 401) {
 		return { _t: 'unauthorized' };
 	}
 	if (res.status === 200) {
@@ -116,4 +116,16 @@ const querySettings = async (query: string): Promise<Result<string[], string>> =
 		'result'
 	);
 };
-export { login, getUserMenu, orderDish, saveOrder, logout, queryCantineHistory, querySettings };
+const  fetchSettings = async (): Promise<Result<Settings, string>> => {
+	type SettingsResponse = {settings: Settings};
+	return await sendRequest<SettingsResponse, ErrorResponse, Settings, string>(
+		'/user_settings',
+		'GET',
+		null,
+		'message',
+		'settings'
+	);
+
+}
+
+export { login, getUserMenu, orderDish, saveOrder, logout, queryCantineHistory, querySettings, fetchSettings };

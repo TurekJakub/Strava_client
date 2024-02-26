@@ -1,7 +1,7 @@
 type DishInfo = {
 	id: string;
 	allergens: string[];
-	order_state: boolean;
+	orderState: boolean;
 };
 type Dish = {
 	name: string;
@@ -55,6 +55,12 @@ type DailyMenu = {
 	[key: string]: DishInfo;
 };
 type MenuData = { [key: string]: DailyMenu };
+type Settings = {
+	blacklistedDishes: string[];
+	blacklistedAllergens: string[];
+	whitelistedDishes: string[];
+	strategy: string;
+}
 type QueryResponse<T> = {
    result: T[];
 }

@@ -1,16 +1,16 @@
 <script lang="ts">
 	import {Dropdown, DropdownItem } from 'flowbite-svelte';
-	import { logout } from '$lib/WebComunicationLayer';
+	import { logout, saveOrder} from '$lib/WebComunicationLayer';
 	import { goto } from '$app/navigation';
 	import {username} from '$lib/store';
 	import {account} from '$lib/store';
 
 	async function saveOrders() {
-		// await invoke('save_orders');
+		// await saveOrder();
 	}
 	async function logoutHandler() {
 		await logout();
-		goto('/login');
+		goto('/');
 	}
 </script>
 

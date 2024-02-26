@@ -1,9 +1,9 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
-<button on:click|preventDefault={click}>Click me</button>
-<script lang="ts">
-    import {goto} from '$app/navigation';
-    function click() {
-        goto('/objednavky');
-    }
-</script>
+<script>
+    import Login from "$lib/Login.svelte";
+ </script>
+  
+  <main class="flex items-center justify-center h-screen w-screen">
+   <Login />
+  </main>
+  
+  

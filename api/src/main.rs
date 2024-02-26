@@ -178,7 +178,7 @@ fn authorized_guard(context: &GuardContext) -> bool {
 async fn user_status(session: Session) -> impl Responder {
     match session.get::<String>("username") {
         Ok(Some(username)) => {
-            return succes("logged as", &username);
+            return succes("logged as", &format!(r#""{}""# , username));
         }
         _ => {
             return HttpResponse::Unauthorized()
@@ -223,11 +223,15 @@ async fn get_user_menu(state: Data<Mutex<AppState>>, session: Session) -> impl R
 async fn login(req_body: String, session: Session, state: Data<Mutex<AppState>>) -> impl Responder {
     match serde_json::from_str::<User<'_>>(&req_body) {
         Ok(user_data) => {
-            let client = StravaClient::new_with_settings(Config {
+            let client = match StravaClient::new_with_settings(Config {
                 settings: HashMap::from([("data_source".to_owned(), "api".to_owned())]),
             })
-            .await
-            .unwrap();
+            .await {
+                Ok(client) => client,
+                Err(_) => {
+                    return server_error("server error occurred during logging in");
+                }
+            };
             match client.login(&user_data).await {
                 Ok(user) => {
                     let id = format!("{}{}", user_data.username, user_data.cantine);
@@ -237,16 +241,22 @@ async fn login(req_body: String, session: Session, state: Data<Mutex<AppState>>)
                     session.insert("session_id", session_id.clone()).unwrap();
                     session.insert("username", user.username.clone()).unwrap();
 
-                    // state.lock().unwrap().strava_clients.insert(session_id.clone(), client);
+                    let mut state = state.lock().unwrap();
 
-                    
-                    let mut st = state.lock().unwrap();
-                    st.strava_clients.insert(session_id, client);
-                    let auto = strava_client::automatic_client::AutomaticStravaClient::new(
-                        st.db_client.get_settings(&id).await.unwrap().unwrap(),                                // TODO: rework this for production
-                        user_data,
-                    ).await.unwrap();
-                    auto.cancel_orders().await.unwrap();
+                    state.strava_clients.insert(session_id.clone(), client);
+                    match state.db_client.get_settings(&id).await {
+                        Ok(val) => match val {
+                            Some(settings) => {
+                                let automatic_client = strava_client::automatic_client::AutomaticStravaClient::new_with_existing_request_builder(
+                                    settings,                              
+                                    state.strava_clients.get(&session_id).unwrap().request_builder.clone(),
+                                );
+                                let _ = automatic_client.cancel_orders().await;
+                            }
+                            None => ()
+                        }
+                        Err(_) =>()
+                    }                 
                     
                     return HttpResponse::Ok().body(format!(
                         r#"{{"message":"succesfully logged in","user":{}}}"#,
@@ -271,7 +281,7 @@ async fn get_user_settings(session: Session, state: Data<Mutex<AppState>>) -> im
         .db_client
         .get_settings(
             session
-                .get::<String>("session_id")
+                .get::<String>("id")
                 .unwrap()
                 .unwrap()
                 .as_str(),
@@ -308,7 +318,7 @@ async fn set_user_settings(
             };
             let res = state.lock().unwrap().db_client.insert_user(settings).await;
             match res {
-                Ok(_) => succes("message", "new settings was succesfully saved"),
+                Ok(_) => succes("message", r#""new settings was succesfully saved""#),
                 Err(_) => {
                     server_error("server error occurred while saving user data, try it again later")
                 }
@@ -337,7 +347,7 @@ async fn order_dish(
                 .await
             {
                 Ok(account) => {
-                    return succes("account", &format!("{}", account));
+                    return succes("account", &format!(r#""{}""#, account));
                 }
                 Err(res) => {
                     return server_error(&res.replace("\r\n", " "));
@@ -361,7 +371,7 @@ async fn save_orders(state: Data<Mutex<AppState>>, session: Session) -> impl Res
         .await
     {
         Ok(_) => {
-            return succes("message", "orders was succesfully saved");
+            return succes("message", r#""orders was succesfully saved""#);
         }
         Err(e) => {
             return HttpResponse::InternalServerError().body(format!(
@@ -456,7 +466,7 @@ async fn logout(session: Session, state: Data<Mutex<AppState>>) -> impl Responde
     session.purge();
     return succes(
         "message",
-        &format!(r#""{} was succesfully logged out" "#, username),
+        &format!(r#""{} was succesfully logged out""#, username),
     );
 }
 async fn unauthorized() -> impl Responder {

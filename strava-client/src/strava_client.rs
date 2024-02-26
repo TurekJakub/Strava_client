@@ -6,7 +6,7 @@ use once_cell::sync::OnceCell;
 use std::{env, fs};
 
 pub struct StravaClient {
-    request_builder: RequestBuilder,
+    pub request_builder: RequestBuilder,
     menu: OnceCell<IndexMap<Date, IndexMap<String, DishInfo>>>,
     screaper: tokio::sync::OnceCell<Scraper>,
     account: tokio::sync::OnceCell<f64>,

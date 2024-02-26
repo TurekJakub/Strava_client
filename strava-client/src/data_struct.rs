@@ -103,12 +103,16 @@ impl Serialize for User<'_> {
 pub struct DishInfo {
     pub id: String,
     pub allergens: Vec<String>,
+    #[serde(rename = "orderState")]
     pub order_state: bool,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrdersCancelingSettings {
+    #[serde(rename = "blacklistedDishes")]
     pub blacklisted_dishes: Vec<String>,
+    #[serde(rename = "whitelistedDishes")]
     pub whitelisted_dishes: Vec<String>,
+    #[serde(rename = "blacklistedAllergens")]
     pub blacklisted_allergens: Vec<String>,
     pub strategy: String,
 }
@@ -117,12 +121,15 @@ pub struct UserDBEntry {
     pub id: String,
     pub username: String,
     pub settings: OrdersCancelingSettings,
+    #[serde(rename = "settingsUpdateTime")]
     pub settings_update_time: SystemTime,
 }
 #[derive(Serialize, Deserialize,Debug)]
 pub struct CantineDBEntry {
+    #[serde(rename = "cantinaId")]
     pub cantine_id: String,
     pub name: String,
+    #[serde(rename = "cantinaHistory")]
     pub cantine_history: Vec<ObjectId>,
 }
 #[derive(Serialize, Deserialize, Debug,Clone)]

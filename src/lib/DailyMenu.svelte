@@ -14,10 +14,10 @@
 		let keys = Object.keys(menu);
 		for (let i = 0; i < keys.length; i++) {
 			if (keys[i] !== name) {
-				menu[keys[i]].order_state = false;
+				menu[keys[i]].orderState = false;
 			}
 		}
-		let res = await orderDish(menu[name].id, menu[name].order_state); // Web version from changed import for Tauri version
+		let res = await orderDish(menu[name].id, menu[name].orderState); // Web version from changed import for Tauri version
 		switch (res._t) {
 			case 'success':
 				console.log(res.data);
@@ -48,7 +48,7 @@
 				class="accent-violet-700 me-5 non-expand rounded-sm my-auto"
 				style="width: 15px; height: 15px;"
 				type="checkbox"
-				bind:checked={dish.order_state}
+				bind:checked={dish.orderState}
 				bind:value={name}
 				on:change|preventDefault={selectDish}
 			/>

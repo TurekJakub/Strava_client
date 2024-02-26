@@ -3,12 +3,14 @@
 	import Settings from '$lib/Settings.svelte';
 	import { onMount } from 'svelte';
 	import { cantine } from '$lib/store';
-	import { queryCantineHistory, querySettings } from '$lib/WebComunicationLayer';
+	import { queryCantineHistory, querySettings, fetchSettings } from '$lib/WebComunicationLayer';
 	import { goto } from '$app/navigation';
+	import Alert from '$lib/Alert.svelte';
+	let error: string = '';
 	let settings: boolean = false;
 	let historyResults: Dish[] = [];
-	let settingsRsults: string[] = [];
-	let allergeens: string[] = [
+	let settingsResults: string[] = [];
+	let allergens: string[] = [
 		'Lepek',
 		'Korýši',
 		'Vejce',
@@ -24,6 +26,7 @@
 		'Vlčí bob',
 		'Měkkýši'
 	];
+	let allergensGroup: string[] = [];
 	async function queryHistory(e: Event) {
 		let res = await queryCantineHistory($cantine, (e.target as HTMLInputElement).value);
 		switch (res._t) {
@@ -36,15 +39,17 @@
 		}
 	}
 	onMount(async () => {
-		let settingsRes = await querySettings('');
+		let settingsRes = await fetchSettings();
 		switch (settingsRes._t) {
 			case 'success':
-				settingsRsults = settingsRes.data;
+				settingsResults = settingsRes.data.whitelistedDishes;
+				allergensGroup = settingsRes.data.blacklistedAllergens;
 				break;
 			case 'failure':
+				error = settingsRes.error;
 				break;
 			case 'unauthorized':
-				goto('/login');
+				goto('/');
 				break;
 		}
 		let historyRes = await queryCantineHistory($cantine, '');
@@ -53,6 +58,7 @@
 				historyResults = historyRes.data;
 				break;
 			case 'failure':
+				error = historyRes.error;
 				break;
 		}
 	});
@@ -85,14 +91,15 @@
 			<div class="rounded-md h-full bg-slate-800" style="width: calc(100% + 64px);">
 				<h2 class="ms-2 text-white text-lg">Alergeny</h2>
 				<div class="flex flex-col md:flex-row md:flex-wrap p-2">
-					{#each allergeens as allergen}
+					{#each allergens as allergen}
 						<div class="2xl:w-1/5 xl:w-1/4 w-1/2">
 							<input
 								type="checkbox"
-								id={'alergen_' + allergeens.indexOf(allergen).toString(10)}
-								value={(allergeens.indexOf(allergen) + 1).toString(10)}
+								id={'alergen_' + allergens.indexOf(allergen).toString(10)}
+								value={(allergens.indexOf(allergen) + 1).toString(10)}
+								bind:group={allergensGroup}
 							/>
-							<label class="text-white" for={'alergen_' + allergeens.indexOf(allergen).toString(10)}
+							<label class="text-white" for={'alergen_' + allergens.indexOf(allergen).toString(10)}
 								>{allergen}</label
 							>
 						</div>
@@ -168,10 +175,10 @@
 								</svg>
 							</div>
 						</div>
-						{#key historyResults}
-							{#each historyResults as result}
+						{#key settingsResults}
+							{#each settingsResults as result}
 								<div class="flex flex-row border-2 border-white rounded-md p-2 mt-2">
-									<p class="text-white">{result.name}</p>
+									<p class="text-white">{result}</p>
 								</div>
 							{/each}
 						{/key}
@@ -179,5 +186,8 @@
 				</div>
 			</div>
 		{/if}
+	{/key}
+	{#key error} 
+		<Alert message={error} />
 	{/key}
 </div>

@@ -10,7 +10,7 @@
 		<p class="align-middle text-red-700 ms-2">{message}</p>
 		<button class="ms-auto me-2 text-red-700" on:click={() => (message = '')}
 			><svg
-				class="w-6 h-6 text-gray-800 dark:text-white"
+				class="w-6 h-6 text-red-700"
 				aria-hidden="true"
 				xmlns="http://www.w3.org/2000/svg"
 				fill="none"

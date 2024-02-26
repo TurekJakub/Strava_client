@@ -18,6 +18,15 @@ impl AutomaticStravaClient {
         client.request_builder.do_login_request(&user).await?;
         Ok(client)
     }
+    pub fn new_with_existing_request_builder(
+        settings: OrdersCancelingSettings,
+        request_builder: RequestBuilder,
+    ) -> AutomaticStravaClient {
+        AutomaticStravaClient {
+            request_builder: request_builder,
+            settings: settings,
+        }
+    }
     pub async fn cancel_orders(&self) -> Result<(), String> {
         let menu = self
             .request_builder

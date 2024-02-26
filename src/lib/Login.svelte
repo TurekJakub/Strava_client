@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Error from './Error.svelte';
+	import Error from '$lib/Error.svelte';
 	import { login, getUserMenu } from '$lib/WebComunicationLayer';
 	import { goto } from '$app/navigation';
 	import { cantine, username, account} from '$lib/store';

@@ -6,7 +6,7 @@ use once_cell::sync::OnceCell;
 use reqwest::{Client, Response};
 use scraper::Html;
 use serde_json::{Map, Value};
-
+#[derive(Clone)]
 pub struct RequestBuilder {
     client: Client,
     canteen_id: OnceCell<String>,

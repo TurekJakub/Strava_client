@@ -1,13 +1,15 @@
 <script lang="ts">
 	import Menu from '$lib/Menu.svelte';
 	import Navbar from '$lib/Navbar.svelte';
-	import Error from '$lib/Error.svelte';
+	import Alert from '$lib/Alert.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import {getUserMenu} from '$lib/WebComunicationLayer';
-
+    
+	let error: string = '';
 	let menuData: MenuData = {}
 	let days: string[] = [];
+
 	onMount(async () => {
 	   let data = await getUserMenu();
 	   switch (data._t) {
@@ -16,10 +18,10 @@
 			   days = Object.keys(menuData);
 			   break;
 		   case 'failure':
-		       goto('/login'); // TODO: show alert instead of redirect
+			   error = data.error;
 			   break;
 		   case 'unauthorized':
-			   goto('/login');
+			   goto('/');
 			   break;
 	   }
 	});
@@ -30,5 +32,9 @@
 {#key menuData}
 	<Menu  menuData={menuData } days={days} />
 {/key}
+{#key error}
+	<Alert bind:message={error} />
+{/key}
+
 
 

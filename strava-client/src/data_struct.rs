@@ -109,9 +109,19 @@ pub struct DishInfo {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrdersCancelingSettings {
     #[serde(rename = "blacklistedDishes")]
-    pub blacklisted_dishes: Vec<String>,
+    pub blacklisted_dishes: Vec<DishDBEntry>,
     #[serde(rename = "whitelistedDishes")]
-    pub whitelisted_dishes: Vec<String>,
+    pub whitelisted_dishes: Vec<DishDBEntry>,
+    #[serde(rename = "blacklistedAllergens")]
+    pub blacklisted_allergens: Vec<String>,
+    pub strategy: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SettingsDBEntry {
+    #[serde(rename = "blacklistedDishes")]
+    pub blacklisted_dishes: Vec<ObjectId>,
+    #[serde(rename = "whitelistedDishes")]
+    pub whitelisted_dishes: Vec<ObjectId>,
     #[serde(rename = "blacklistedAllergens")]
     pub blacklisted_allergens: Vec<String>,
     pub strategy: String,
@@ -119,7 +129,13 @@ pub struct OrdersCancelingSettings {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserDBEntry {
     pub id: String,
-    pub username: String,
+    pub settings: SettingsDBEntry,
+    #[serde(rename = "settingsUpdateTime")]
+    pub settings_update_time: SystemTime,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UserData{
+    pub id: String,
     pub settings: OrdersCancelingSettings,
     #[serde(rename = "settingsUpdateTime")]
     pub settings_update_time: SystemTime,
@@ -132,11 +148,18 @@ pub struct CantineDBEntry {
     #[serde(rename = "cantinaHistory")]
     pub cantine_history: Vec<ObjectId>,
 }
-#[derive(Serialize, Deserialize, Debug,Clone)]
+#[derive(Serialize, Deserialize, Debug,Clone,Eq,Hash)]
 pub struct DishDBEntry {
     pub name: String,
     pub allergens: Vec<String>,
 }
+impl  PartialEq for DishDBEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.name.eq(&other.name) && self.allergens.eq(&other.allergens)
+    }
+    
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Cantine {
     pub id: String,

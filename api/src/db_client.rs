@@ -11,8 +11,8 @@ use std::env;
 use std::path::PathBuf;
 use std::time::SystemTime;
 use strava_client::data_struct::{
-    CantineDBEntry, DBHistoryQuery, DishDBEntry, OrdersCancelingSettings, SettingsQuery,
-    UserDBEntry,
+    CantineDBEntry, DBHistoryQuery, DishDBEntry, OrdersCancelingSettings, SettingsDBEntry,
+    SettingsQuery, UserDBEntry, UserData,
 };
 pub struct DbClient {
     client: mongodb::Client,
@@ -26,7 +26,7 @@ impl DbClient {
     pub async fn get_settings_update_time(
         &self,
         username: &str,
-    ) -> Result<Option<SystemTime>, mongodb::error::Error> {
+    ) -> Result<Option<SystemTime>, String> {
         let user = self.get_user(username).await?;
         match user {
             Some(user) => {
@@ -36,17 +36,14 @@ impl DbClient {
             None => Ok(None),
         }
     }
-    pub async fn get_settings(
-        &self,
-        id: &str,
-    ) -> Result<Option<OrdersCancelingSettings>, mongodb::error::Error> {
+    pub async fn get_settings(&self, id: &str) -> Result<Option<OrdersCancelingSettings>, String> {
         let user = self.get_user(id).await?;
         match user {
             Some(user) => Ok(Some(user.settings)),
             None => Ok(None),
         }
     }
-    pub async fn insert_user(&self, user: UserDBEntry) -> Result<(), mongodb::error::Error> {
+    pub async fn insert_user(&self, user: UserData) -> Result<(), String> {
         match self.get_user(&user.id).await? {
             Some(_) => {
                 self.update_user(user).await?;
@@ -58,30 +55,150 @@ impl DbClient {
             }
         }
     }
-    async fn get_user(&self, id: &str) -> Result<Option<UserDBEntry>, mongodb::error::Error> {
+    async fn get_user(&self, id: &str) -> Result<Option<UserData>, String> {
         let collection = self.get_users_collection().await;
-        let user = collection.find_one(doc! { "id": id }, None).await;
-        user
+        let mut user_res = match collection
+            .aggregate(
+                [
+                    doc! {
+                        "$match": doc! {
+                            "id": id
+                        }
+                    },
+                    doc! {
+                        "$unwind": doc! {
+                            "path": "$settings.blacklistedDishes"
+                        }
+                    },
+                    doc! {
+                        "$unwind": doc! {
+                            "path": "$settings.whitelistedDishes"
+                        }
+                    },
+                    doc! {
+                        "$lookup": doc! {
+                            "from": "dishes",
+                            "localField": "blacklistedDishes",
+                            "foreignField": "_id",
+                            "as": "blacklistedDish"
+                        }
+                    },
+                    doc! {
+                        "$lookup": doc! {
+                            "from": "dishes",
+                            "localField": "whitlistedDishes",
+                            "foreignField": "_id",
+                            "as": "whitlistedDish"
+                        }
+                    },
+                    doc! {
+                        "$unwind": doc! {
+                            "path": "$blacklistedDish",
+                            "preserveNullAndEmptyArrays": true
+                        }
+                    },
+                    doc! {
+                        "$unwind": doc! {
+                            "path": "$whitelistedDish",
+                            "preserveNullAndEmptyArrays": true
+                        }
+                    },
+                    doc! {
+                        "$group": doc! {
+                            "_id": "$_id",
+                            "settingsUpdateTime": doc! {
+                                "$first": "$settingsUpdateTime"
+                            },
+                            "blacklistedAllergens": doc! {
+                                "$first": "$settings.blacklistedAllergens"
+                            },
+                            "strategy": doc! {
+                                "$first": "$settings.strategy"
+                            },
+                            "blacklistedDishes": doc! {
+                                "$push": "$blacklistedDish"
+                            },
+                            "whitelistedDishes": doc! {
+                                "$push": "$whitelistedDish"
+                            },
+                            "id": doc! {
+                                "$first": "$id"
+                            }
+                        }
+                    },
+                    doc! {
+                        "$project": doc! {
+                            "_id": "$_id",
+                            "id": "$id",
+                            "settings": doc! {
+                                "blacklistedDishes": "$blacklistedDishes",
+                                "blacklistedAllergens": "$blacklistedAllergens",
+                                "whitelistedDishes": "$whitelistedDishes",
+                                "strategy": "$strategy"
+                            },
+                            "settingsUpdateTime": "$settingsUpdateTime"
+                        }
+                    },
+                ],
+                None,
+            )
+            .await
+        {
+            Ok(stream) => stream,
+            Err(e) => return Err(e.to_string()),
+        };
+        match user_res.next().await {
+            Some(user) => match user {
+                Ok(doc) => match bson::from_document::<UserData>(doc) {
+                    Ok(user) => Ok(Some(user)),
+                    Err(_) => Err("Failed to parse retrived from database data".to_string()),
+                },
+                Err(_) => Err("Error occured while retriving data from databse".to_string()),
+            },
+            None => Ok(None),
+        }
     }
-    async fn create_user(&self, user: UserDBEntry) -> Result<(), mongodb::error::Error> {
+    /*
+
+    */
+    async fn create_user(&self, user: UserData) -> Result<(), String> {
         let collection = self.get_users_collection().await;
-        collection.insert_one(user, None).await?;
-        Ok(())
+        let user = UserDBEntry {
+            id: user.id,
+            settings: SettingsDBEntry {
+                whitelisted_dishes: self.get_dishes_ids(user.settings.whitelisted_dishes).await,
+                blacklisted_dishes: self.get_dishes_ids(user.settings.blacklisted_dishes).await,
+                strategy: user.settings.strategy,
+                blacklisted_allergens: user.settings.blacklisted_allergens,
+            },
+            settings_update_time: user.settings_update_time,
+        };
+        match collection.insert_one(user, None).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
     }
-    async fn update_user(&self, user: UserDBEntry) -> Result<(), mongodb::error::Error> {
+    async fn update_user(&self, user: UserData) -> Result<(), String> {
         let database = self.client.database("strava");
         let collection: Collection<UserDBEntry> = database.collection("users");
-        collection
+        match collection
             .update_one(
-                doc! { "username": user.username },
+                doc! { "id": user.id },
                 doc! {
                         "$set": doc! { "update_time": serde_json::to_string(&user.settings_update_time).unwrap(),
-                                      "settings": serde_json::to_string(&user.settings).unwrap(), }
+                                      "settings": serde_json::to_string(&SettingsDBEntry { 
+                                           whitelisted_dishes:self.get_dishes_ids(user.settings.whitelisted_dishes).await,
+                                           blacklisted_dishes:self.get_dishes_ids(user.settings.blacklisted_dishes).await,
+                                           strategy: user.settings.strategy,
+                                           blacklisted_allergens: user.settings.blacklisted_allergens}).unwrap()
+                                        }
                 },
                 None,
             )
-            .await?;
-        Ok(())
+            .await{
+             Ok(_) => Ok(()),
+             Err(e) => Err(e.to_string())
+            }
     }
     pub async fn get_cantine(
         &self,
@@ -229,45 +346,7 @@ impl DbClient {
         let database = self.client.database("strava");
         database.collection("dishes")
     }
-    /*
-        Get cantine histrory db query
-        [
-        doc! {
-            "$match": doc! {
-                "cantine_id": cantine_id
-            }
-        },
-        doc! {
-            "$unwind": doc! {
-                "path": "$cantine_history"
-            }
-        },
-        doc! {
-            "$lookup": doc! {
-                "from": "dishes",
-                "localField": "cantine_history",
-                "foreignField": "_id",
-                "as": "dish"
-            }
-        },
-        doc! {
-            "$unwind": doc! {
-                "path": "$dish"
-            }
-        },
-        doc! {
-            "$group": doc! {
-                "_id": "$_id",
-                "dishes": doc! {
-                    "$push": "$dish"
-                },
-                "cantine_history": doc! {
-                    "$push": "$cantine_history"
-                }
-            }
-        }
-    ]
-     */
+
     pub async fn query_cantine_history(
         &self,
         cantine_id: &str,
@@ -345,7 +424,7 @@ impl DbClient {
             Err(e) => Err(e.to_string()),
         }
     }
-    pub async fn query_settings(&self, id: &str, query: &str) -> Result<Vec<String>, String> {
+    pub async fn query_settings(&self, id: &str, query: &str) -> Result<Vec<String>, String> { // TODO redo for use of ObjectIds
         let results_stream = self.get_users_collection().await.aggregate([
             doc! {
                 "$match": doc! {
@@ -393,6 +472,17 @@ impl DbClient {
             },
             Err(e) => Err(e.to_string()),
         }
+    }
+    async fn get_dishes_ids(&self, dishes: Vec<DishDBEntry>) -> Vec<ObjectId> {
+        let mut ids = Vec::new();
+        for dish in dishes {
+            match self.get_dish_id(&dish.name, &dish.allergens).await {
+                Ok(Some(id)) => ids.push(id),
+                Ok(None) => continue,
+                Err(_) => continue,
+            }
+        }
+        ids
     }
 }
 

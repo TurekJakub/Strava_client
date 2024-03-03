@@ -18,7 +18,7 @@ use db_client::DbClient;
 use std::sync::Mutex;
 use strava_client::data_struct::{
     Config, DBHistoryQueryUrlString, OrderDishRequestBody, SettingsQueryUrlString,
-    SettingsRequestBody, User, UserDBEntry,
+    SettingsRequestBody, User, UserData,
 };
 use strava_client::strava_client::StravaClient;
 mod crawler;
@@ -310,9 +310,8 @@ async fn set_user_settings(
     let settings = serde_json::from_str::<SettingsRequestBody>(&req_body);
     match settings {
         Ok(settings) => {
-            let settings = UserDBEntry {
+            let settings = UserData {
                 id: session.get::<String>("session_id").unwrap().unwrap(),
-                username: session.get::<String>("username").unwrap().unwrap(),
                 settings: settings.settings,
                 settings_update_time: settings.settings_update_time,
             };

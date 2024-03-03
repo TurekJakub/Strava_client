@@ -1,11 +1,11 @@
 <script lang="ts">
 	import Navbar from '$lib/Navbar.svelte';
-	import Settings from '$lib/Settings.svelte';
 	import { onMount } from 'svelte';
 	import { cantine } from '$lib/store';
 	import { queryCantineHistory, querySettings, fetchSettings } from '$lib/WebComunicationLayer';
 	import { goto } from '$app/navigation';
 	import Alert from '$lib/Alert.svelte';
+	import List from '$lib/BlackListMenu.svelte';
 	let error: string = '';
 	let settings: boolean = false;
 	let historyResults: Dish[] = [];
@@ -26,6 +26,7 @@
 		'Vlčí bob',
 		'Měkkýši'
 	];
+	
 	let allergensGroup: string[] = [];
 	async function queryHistory(e: Event) {
 		let res = await queryCantineHistory($cantine, (e.target as HTMLInputElement).value);
@@ -106,88 +107,11 @@
 					{/each}
 				</div>
 				<h2 class="ms-2 text-white text-lg mb-2">Pokrmy</h2>
-				<div class="flex flex-1 flex-row h-96 mb-2">
-					<div
-						class="w-1/2 rounded-md h-96 overflow-y-scroll scrollbar-none border-2 border-white ms-2 me-8 mb-2 px-3 pb-3"
-					>
-						<div class="sticky top-0 bg-slate-800 py-3">
-							<div
-								class="border-separate border-2 border-white flex flex-row w-full rounded-full mx-auto p-2 h-10 text-center sticky top-0"
-							>
-								<input
-									class="dark:dark-mode-autofill p-1 bg-slate-800 text-white border-none w-full focus-within:border-none focus-within:ring-0 focus-within:outline-none"
-									type="text"
-									on:input={queryHistory}
-								/>
-								<svg
-									class="text-gray-800 dark:text-white block h-8 w-8 me-2 my-auto"
-									aria-hidden="true"
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									style="height: 20px; width: 20px;"
-								>
-									<path
-										class="my-auto block"
-										stroke="currentColor"
-										stroke-linecap="round"
-										stroke-width="2"
-										d="m21 21-3.5-3.5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-									/>
-								</svg>
-							</div>
-						</div>
-						{#key historyResults}
-							{#each historyResults as result}
-								<div class="flex flex-row border-2 border-white rounded-md p-2 mt-2">
-									<p class="text-white">{result.name}</p>
-								</div>
-							{/each}
-						{/key}
-					</div>
-					<div
-						class="w-1/2 rounded-md h-96 overflow-y-scroll scrollbar-none border-2 border-white ms-2 me-8 mb-2 px-3 pb-3"
-					>
-						<div class="sticky top-0 bg-slate-800 py-3">
-							<div
-								class="border-separate border-2 border-white flex flex-row w-full rounded-full mx-auto p-2 h-10 text-center sticky top-0"
-							>
-								<input
-									class="dark:dark-mode-autofill p-1 bg-slate-800 text-white border-none w-full focus-within:border-none focus-within:ring-0 focus-within:outline-none"
-									type="text"
-									on:input={queryHistory}
-								/>
-								<svg
-									class="text-gray-800 dark:text-white block h-8 w-8 me-2 my-auto"
-									aria-hidden="true"
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									style="height: 20px; width: 20px;"
-								>
-									<path
-										class="my-auto block"
-										stroke="currentColor"
-										stroke-linecap="round"
-										stroke-width="2"
-										d="m21 21-3.5-3.5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-									/>
-								</svg>
-							</div>
-						</div>
-						{#key settingsResults}
-							{#each settingsResults as result}
-								<div class="flex flex-row border-2 border-white rounded-md p-2 mt-2">
-									<p class="text-white">{result}</p>
-								</div>
-							{/each}
-						{/key}
-					</div>
-				</div>
+				<List />
 			</div>
 		{/if}
 	{/key}
-	{#key error} 
+	{#key error}
 		<Alert message={error} />
 	{/key}
 </div>

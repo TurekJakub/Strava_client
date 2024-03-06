@@ -1,15 +1,22 @@
 <script lang="ts">
+	import { json } from '@sveltejs/kit';
 	import { createEventDispatcher } from 'svelte';
 
-	export let list: Dish[] = [];
-	export let draggedItem: string = ''; 
+	export let list: MenuDish[] = [];
+	export let draggedItem: MenuDish;
 	const dispatch = createEventDispatcher();
 
 	function onDragStart(e: DragEvent) {
-		draggedItem =
-			(e.target as HTMLElement).getElementsByTagName('p').length > 0
-				? (e.target as HTMLElement).getElementsByTagName('p')[0].innerText
-				: '';
+		draggedItem = {
+			name:
+				(e.target as HTMLElement).getElementsByTagName('p').length > 1
+					? (e.target as HTMLElement).getElementsByTagName('p')[0].innerText
+					: '',
+			allergens:
+				(e.target as HTMLElement).getElementsByTagName('p').length > 1
+					? (e.target as HTMLElement).getElementsByTagName('p')[1].innerText
+					: '',
+		};
 
 		console.log(draggedItem);
 	}
@@ -17,7 +24,9 @@
 
 <div
 	class="w-1/2 rounded-md h-96 overflow-y-scroll scrollbar-none border-2 border-white ms-2 me-8 mb-2 px-3 pb-3"
-	on:drop={() => {dispatch('drop')}}
+	on:drop={() => {
+		dispatch('drop');
+	}}
 	on:dragover|preventDefault
 	role="cell"
 	tabindex="-1"
@@ -50,8 +59,15 @@
 	</div>
 
 	{#each list as item}
-		<div class="flex flex-row border-2 border-white rounded-md p-2 mt-2 opacity-100" draggable="true" on:dragstart={onDragStart} role="cell" tabindex="-1">
-			<p class="text-white">{item.name} <span class="text-gray-400">{item.allergens}</span></p>
+		<div
+			class="flex flex-col border-2 border-white rounded-md p-2 mt-2 opacity-100"
+			draggable="true"
+			on:dragstart={onDragStart}
+			role="cell"
+			tabindex="-1"
+		>
+			<p class="text-white">{item.name} <span class="text-gray-400"></span></p>
+			<p class="text-gray-400">{item.allergens}</p>
 		</div>
 	{/each}
 </div>

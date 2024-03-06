@@ -1,46 +1,40 @@
 <script lang="ts">
-	import BlackList from "./BlackList.svelte";
+	import BlackList from './BlackList.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	export let sourceList: Dish[] = [];
-	export let targetList: Dish[] = [];	
-	let draggedItem: string = '';
+	export let sourceList: MenuDish[] = [];
+	export let targetList: MenuDish[] = [];
+	let draggedItem: MenuDish;
 
 	const dispatch = createEventDispatcher();
 
-	function onDragStart(e: Event) {
-		console.log(e);
-		draggedItem =
-			(e.target as HTMLElement).getElementsByTagName('p').length > 0
-				? (e.target as HTMLElement).getElementsByTagName('p')[0].innerText
-				: '';
-
-		console.log(draggedItem);
-	}
-
 	function onDropToSourceList(e: Event) {
 		console.log(e);
-		if (draggedItem !== '') {
-			const index = targetList.indexOf(draggedItem, 0); // TODO: fix this
-			if (index > -1) {
-				targetList.splice(index, 1);
+		if (draggedItem !== undefined) {
+			sourceList = [...sourceList, draggedItem];
+			for ( let i = 0; i < targetList.length; i++ ) {
+				if (targetList[i].name === draggedItem.name && targetList[i].allergens === draggedItem.allergens) {
+					targetList.splice(i, 1);					
+				}
 			}
-            targetList = targetList
+			targetList = targetList;
 		}
 	}
 	function onDropToTargetList(e: Event) {
-		if (draggedItem !== '') {
-			const index = sourceList.indexOf(draggedItem, 0);
+		if (draggedItem !== undefined) {
 			targetList = [...targetList, draggedItem];
-			if (index > -1) {
-				sourceList.splice(index, 1);
+			for ( let i = 0; i < sourceList.length; i++ ) {
+				if (sourceList[i].name === draggedItem.name && sourceList[i].allergens === draggedItem.allergens) {
+					sourceList.splice(i, 1);					
+				}
 			}
-            sourceList = sourceList
+			sourceList = sourceList;
 		}
 	}
 </script>
+
 <div class="flex flex-1 flex-row h-96 mb-2">
-		<!-- Compare this snippet from src/lib/BlackList.svelte:
+	<!-- Compare this snippet from src/lib/BlackList.svelte:
 		<div
 		class="w-1/2 rounded-md h-96 overflow-y-scroll scrollbar-none border-2 border-white ms-2 me-8 mb-2 px-3 pb-3"
 		on:drop={onDropToSourceList}
@@ -83,7 +77,20 @@
 {/each}
 </div>
 -->
-<BlackList bind:draggedItem bind:list={sourceList} on:drop={(e) => {onDropToSourceList(e);dispatch('drop')}}/>
-<BlackList bind:draggedItem bind:list={targetList} on:drop={(e) => {onDropToTargetList(e);dispatch('drop')}}/>
-	
+	<BlackList
+		bind:draggedItem
+		bind:list={sourceList}
+		on:drop={(e) => {
+			onDropToSourceList(e);
+			dispatch('drop');
+		}}
+	/>
+	<BlackList
+		bind:draggedItem
+		bind:list={targetList}
+		on:drop={(e) => {
+			onDropToTargetList(e);
+			dispatch('drop');
+		}}
+	/>
 </div>

@@ -7,6 +7,11 @@ type Dish = {
 	name: string;
 	allergens: string[];
 }
+type MenuDish = {
+	
+	name: string;
+	allergens: string;
+};
 type OrderDishRequest = {
 	id: string;
 	status: boolean;
@@ -56,11 +61,17 @@ type DailyMenu = {
 };
 type MenuData = { [key: string]: DailyMenu };
 type Settings = {
-	blacklistedDishes: string[];
+	blacklistedDishes: MenuDish[];
 	blacklistedAllergens: string[];
-	whitelistedDishes: string[];
+	whitelistedDishes: MenuDish[];
 	strategy: string;
 }
+type SettingsToDisplay = {
+	blacklistedDishes: MenuDish[];
+	blacklistedAllergens: string[];
+	whitelistedDishes: MenuDish[];
+	strategy: string;
+};
 type QueryResponse<T> = {
    result: T[];
 }

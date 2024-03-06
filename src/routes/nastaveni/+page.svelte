@@ -5,11 +5,11 @@
 	import { queryCantineHistory, querySettings, fetchSettings } from '$lib/WebComunicationLayer';
 	import { goto } from '$app/navigation';
 	import Alert from '$lib/Alert.svelte';
-	import List from '$lib/BlackListMenu.svelte';
+	import BlackListMenu from '$lib/BlackListMenu.svelte';
 	let error: string = '';
 	let settings: boolean = false;
-	let historyResults: Dish[] = [];
-	let settingsResults: string[] = [];
+	let historyResults: MenuDish[] = [];
+	let settingsResults: MenuDish[] = [];
 	let allergens: string[] = [
 		'Lepek',
 		'Korýši',
@@ -107,7 +107,7 @@
 					{/each}
 				</div>
 				<h2 class="ms-2 text-white text-lg mb-2">Pokrmy</h2>
-				<List />
+				<BlackListMenu bind:sourceList={historyResults} bind:targetList={settingsResults} />
 			</div>
 		{/if}
 	{/key}

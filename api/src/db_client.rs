@@ -185,7 +185,7 @@ impl DbClient {
             .update_one(
                 doc! { "id": user.id },
                 doc! {
-                        "$set": doc! { "update_time": serde_json::to_string(&user.settings_update_time).unwrap(),
+                        "$set": doc! { "updateTime": serde_json::to_string(&user.settings_update_time).unwrap(),
                                       "settings": serde_json::to_string(&SettingsDBEntry { 
                                            whitelisted_dishes:self.get_dishes_ids(user.settings.whitelisted_dishes).await,
                                            blacklisted_dishes:self.get_dishes_ids(user.settings.blacklisted_dishes).await,
@@ -206,7 +206,7 @@ impl DbClient {
     ) -> Result<Option<CantineDBEntry>, mongodb::error::Error> {
         let collection = self.get_cantines_collection().await;
         let cantine = collection
-            .find_one(doc! { "cantine_id": cantine_id }, None)
+            .find_one(doc! { "cantineId": cantine_id }, None)
             .await;
         cantine
     }
@@ -226,16 +226,16 @@ impl DbClient {
                 [
                     doc! {
                        "$match": doc!{
-                           "cantine_id": cantine_id
+                           "cantineId": cantine_id
                         }
                     },
                     doc! {
                         "$project":  doc!{
-                            "cantine_id": "$cantine_id",
+                            "cantineId": "$cantineId",
                             "name": "$name",
-                            "cantine_history": doc!{
+                            "cantineHistory": doc!{
                                 "$setUnion": [
-                                    "$cantine_history",
+                                    "$cantineHistory",
                                        cantine_history
                                         ]
                                     }
@@ -250,9 +250,9 @@ impl DbClient {
                 let doc: CantineDBEntry = bson::from_document(doc?)?;
                 collection
                     .update_one(
-                        doc! { "cantine_id": cantine_id },
+                        doc! { "cantineId": cantine_id },
                         doc! {
-                                "$set": doc! { "cantine_history": doc.cantine_history }
+                                "$set": doc! { "cantineHistory": doc.cantine_history }
                         },
                         None,
                     )
@@ -359,19 +359,19 @@ impl DbClient {
                 [
                     doc! {
                         "$match": doc! {
-                            "cantine_id": cantine_id
+                            "cantineId": cantine_id
                         }
                     },
                     doc! {
                         "$unwind": doc! {
-                            "path": "$cantine_history",
+                            "path": "$cantineHistory",
                             "preserveNullAndEmptyArrays": false
                         }
                     },
                     doc! {
                         "$lookup": doc! {
                             "from": "dishes",
-                            "localField": "cantine_history",
+                            "localField": "cantineHistory",
                             "foreignField": "_id",
                             "as": "dish"
                         }
@@ -423,8 +423,8 @@ impl DbClient {
             }
             Err(e) => Err(e.to_string()),
         }
-    }
-    pub async fn query_settings(&self, id: &str, query: &str) -> Result<Vec<String>, String> { // TODO redo for use of ObjectIds
+    } 
+    pub async fn query_settings(&self, id: &str, query: &str) -> Result<Vec<String>, String> { 
         let results_stream = self.get_users_collection().await.aggregate([
             doc! {
                 "$match": doc! {
@@ -433,13 +433,27 @@ impl DbClient {
             },
             doc! {
                 "$unwind": doc! {
-                    "path": "$settings.blacklisted_dishes",
+                    "path": "$settings.blacklistedDishes",
+                    "preserveNullAndEmptyArrays": false
+                }
+            },
+            doc! {
+                "$lookup": doc! {
+                    "from": "dishes",
+                    "localField": "settings.blacklistedDishes",
+                    "foreignField": "_id",
+                    "as": "settings.blacklistedDishes"
+                }
+            },
+            doc! {
+                "$unwind": doc! {
+                    "path": "$settings.blacklistedDishes",
                     "preserveNullAndEmptyArrays": false
                 }
             },
             doc! {
                 "$match": doc! {
-                    "settings.blacklisted_dishes": doc! {
+                    "settings.blacklistedDishes.name": doc! {
                         "$regex": Regex { pattern: input_to_regex_string(query), options: "i".to_string() }
                     }
                 }
@@ -448,7 +462,7 @@ impl DbClient {
                 "$group": doc! {
                     "_id": "_id",
                     "results": doc! {
-                        "$push": "$settings.blacklisted_dishes"
+                        "$push": "$settings.blacklistedDishes"
                     }
                 }
             }

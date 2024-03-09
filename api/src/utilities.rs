@@ -19,6 +19,9 @@ pub fn input_to_regex_string(input: &str) -> String {
     );
    str.to_string()
 }
+pub fn trim_whitespace(input: &str) -> String {
+    input.trim().split(' ').filter(|s| !s.is_empty()).collect()
+}
 fn replace_multiple(input: &str, replacements: Vec<(&str, &str)>) -> String {
     let mut result = input.to_string();
     for (from, to) in replacements {

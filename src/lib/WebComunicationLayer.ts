@@ -94,29 +94,17 @@ const logout = async (): Promise<void> => {
 const queryCantineHistory = async (
 	cantineId: string,
 	query: string
-): Promise<Result<MenuDish[], string>> => {
+): Promise<Result<Dish[], string>> => {
 	let url = `/cantine_history?cantine_id=${encodeURIComponent(
 		cantineId
 	)}&query=${encodeURIComponent(query)}`;
-	let res = await sendRequest<QueryResponse<Dish>, ErrorResponse, Dish[], string>(
+	return await sendRequest<QueryResponse<Dish>, ErrorResponse, Dish[], string>(
 		url,
 		'GET',
 		null,
 		'message',
 		'result'
 	);
-	switch (res._t) {
-		case 'success':
-			let dishes: MenuDish[] = [];
-			for (let dish of res.data) {
-				dishes.push({ name: dish.name, allergens: JSON.stringify(dish.allergens) });
-			}
-			return { _t: 'success', data: dishes };
-		case 'failure':
-			return { _t: 'failure', error: res.error };
-		case 'unauthorized':
-			return { _t: 'unauthorized' };
-	}
 };
 
 const querySettings = async (query: string): Promise<Result<string[], string>> => {
@@ -131,39 +119,15 @@ const querySettings = async (query: string): Promise<Result<string[], string>> =
 };
 const fetchSettings = async (): Promise<Result<Settings, string>> => {
 	type SettingsResponse = {
-		settings: SettingsToDisplay;
+		settings: Settings ;
 	};
-	let res = await sendRequest<SettingsResponse, ErrorResponse, Settings, string>(
+	return await sendRequest<SettingsResponse, ErrorResponse, Settings, string>(
 		'/user_settings',
 		'GET',
 		null,
 		'message',
 		'settings'
 	);
-	switch (res._t) {
-		case 'success':
-			let balcklist: MenuDish[] = [];
-			let whitelist: MenuDish[] = [];
-			for (let dish of res.data.blacklistedDishes) {
-				balcklist.push({ name: dish.name, allergens: JSON.stringify(dish) });
-			}
-			for (let dish of res.data.whitelistedDishes) {
-				whitelist.push({ name: dish.name, allergens: JSON.stringify(dish) });
-			}
-			return {
-				_t: 'success',
-				data: {
-					blacklistedDishes: balcklist,
-					whitelistedDishes: whitelist,
-					blacklistedAllergens: res.data.blacklistedAllergens,
-					strategy: res.data.strategy
-				}
-			};
-		case 'failure':
-			return { _t: 'failure', error: res.error };
-		case 'unauthorized':
-			return { _t: 'unauthorized' };
-	}
 };
 
 export {

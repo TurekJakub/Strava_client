@@ -8,8 +8,8 @@
 	import BlackListMenu from '$lib/BlackListMenu.svelte';
 	let error: string = '';
 	let settings: boolean = false;
-	let historyResults: MenuDish[] = [];
-	let settingsResults: MenuDish[] = [];
+	let historyResults: Dish[] = [];
+	let settingsResults: Dish[] = [];
 	let allergens: string[] = [
 		'Lepek',
 		'Korýši',

@@ -2,20 +2,15 @@
 	import { json } from '@sveltejs/kit';
 	import { createEventDispatcher } from 'svelte';
 
-	export let list: MenuDish[] = [];
-	export let draggedItem: MenuDish;
+	export let list: Dish[] = [];
+	export let draggedItem: Dish;
 	const dispatch = createEventDispatcher();
 
 	function onDragStart(e: DragEvent) {
+		let source = (e.target as HTMLElement).getElementsByTagName('p');
 		draggedItem = {
-			name:
-				(e.target as HTMLElement).getElementsByTagName('p').length > 1
-					? (e.target as HTMLElement).getElementsByTagName('p')[0].innerText
-					: '',
-			allergens:
-				(e.target as HTMLElement).getElementsByTagName('p').length > 1
-					? (e.target as HTMLElement).getElementsByTagName('p')[1].innerText
-					: '',
+			name: source.length > 0 ? source[0].innerText : '',
+			allergens: source.length > 1 ? source[1].innerText.split(',')[0] === ""? [] :source[1].innerText.split(',') : []
 		};
 
 		console.log(draggedItem);

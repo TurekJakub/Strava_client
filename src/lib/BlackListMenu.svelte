@@ -2,31 +2,45 @@
 	import BlackList from './BlackList.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	export let sourceList: MenuDish[] = [];
-	export let targetList: MenuDish[] = [];
-	let draggedItem: MenuDish;
+	export let sourceList: Dish[] = [];
+	export let targetList: Dish[] = [];
+	let draggedItem: Dish;
 
 	const dispatch = createEventDispatcher();
 
-	function onDropToSourceList(e: Event) {
-		console.log(e);
+	function onDropToSourceList() {
 		if (draggedItem !== undefined) {
 			sourceList = [...sourceList, draggedItem];
-			for ( let i = 0; i < targetList.length; i++ ) {
-				if (targetList[i].name === draggedItem.name && targetList[i].allergens === draggedItem.allergens) {
-					targetList.splice(i, 1);					
+			for (let i = 0; i < targetList.length; i++) {
+				if (
+					targetList[i].name === draggedItem.name &&
+					targetList[i].allergens === draggedItem.allergens
+				) {
+					targetList.splice(i, 1);
 				}
 			}
 			targetList = targetList;
 		}
 	}
-	function onDropToTargetList(e: Event) {
+	const constains = (list: Dish[], item: Dish): number => {
+		for (let i = 0; i < list.length; i++) {
+			if (
+				list[i].name === item.name &&
+				JSON.stringify(list[i].allergens) === JSON.stringify(item.allergens)
+			) {
+				return i;
+			}
+		}
+		return -1;
+	};
+
+	function onDropToTargetList() {
 		if (draggedItem !== undefined) {
-			targetList = [...targetList, draggedItem];
-			for ( let i = 0; i < sourceList.length; i++ ) {
-				if (sourceList[i].name === draggedItem.name && sourceList[i].allergens === draggedItem.allergens) {
-					sourceList.splice(i, 1);					
-				}
+			if (constains(targetList, draggedItem) === -1) {
+				targetList = [...targetList, draggedItem];
+			}
+			if (constains(sourceList, draggedItem) !== -1) {
+				sourceList.splice(constains(sourceList, draggedItem), 1);
 			}
 			sourceList = sourceList;
 		}
@@ -81,7 +95,7 @@
 		bind:draggedItem
 		bind:list={sourceList}
 		on:drop={(e) => {
-			onDropToSourceList(e);
+			onDropToSourceList();
 			dispatch('drop');
 		}}
 	/>
@@ -89,7 +103,7 @@
 		bind:draggedItem
 		bind:list={targetList}
 		on:drop={(e) => {
-			onDropToTargetList(e);
+			onDropToTargetList();
 			dispatch('drop');
 		}}
 	/>

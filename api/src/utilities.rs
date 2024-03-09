@@ -1,3 +1,27 @@
+#[macro_export]
+macro_rules! skip_fail {
+    ($res:expr) => {
+        match $res {
+            Ok(val) => val,
+            Err(e) => {
+                continue;
+            }
+        }
+    };
+}
+#[macro_export]
+macro_rules! skip_none {
+    ($res:expr) => {
+        match $res {
+            Some(val) => val,
+            None => {
+                continue;
+            }
+        }
+    };
+}
+pub(crate) use skip_fail;
+pub(crate) use skip_none;
 pub fn input_to_regex_string(input: &str) -> String {
     let str = replace_multiple(
         &input.to_lowercase(),
@@ -17,10 +41,14 @@ pub fn input_to_regex_string(input: &str) -> String {
             ("o", "[o,ó]"),
         ],
     );
-   str.to_string()
+    str.to_string()
 }
 pub fn trim_whitespace(input: &str) -> String {
-    input.trim().split(' ').filter(|s| !s.is_empty()).collect()
+    let res: Vec<_> = input.split_whitespace().collect();
+    res.join(" ")
+}
+pub fn filter_digits(input: &str) -> String {
+    input.chars().filter(|c| c.is_digit(10)).collect()
 }
 fn replace_multiple(input: &str, replacements: Vec<(&str, &str)>) -> String {
     let mut result = input.to_string();

@@ -1,10 +1,10 @@
 use crate::db_client::DbClient;
-
+use crate::utilities::{filter_digits, trim_whitespace,skip_none};
+use bson::oid::ObjectId;
 use reqwest::Client;
-use std::error::Error;
-use strava_client::data_struct::{
-    Cantine, CantineDBEntry, CantineData, DishDBEntry,
-};
+use std::{collections::HashSet, error::Error};
+use strava_client::data_struct::{Cantine, CantineDBEntry, CantineData, DishDBEntry};
+
 pub struct Crawler {
     client: Client,
     db_client: DbClient,
@@ -39,13 +39,19 @@ impl Crawler {
         let mut cantines: Vec<Cantine> = Vec::new();
         for cantine in cantines_data {
             cantines.push(Cantine {
-                id: cantine.zarizeni.get(0).unwrap().clone(),
-                name: format!(
+                id: trim_whitespace(&cantine.zarizeni.get(0).unwrap()),
+                name: trim_whitespace(&format!(
                     "{}, {}, {}",
-                    cantine.v_nazev.get(0).unwrap().clone(),
-                    cantine.v_mesto.get(0).unwrap().clone(),
-                    cantine.v_ulice.get(0).unwrap().clone()
-                ),
+                    match cantine.v_nazev.get(0) {
+                        None => continue,
+                        Some(name) => match name.as_str() {
+                            "" => continue,
+                            _ => name,
+                        }
+                    },
+                    skip_none!(cantine.v_mesto.get(0)),
+                    skip_none!(cantine.v_ulice.get(0))
+                )),
             })
         }
         Ok(cantines)
@@ -54,21 +60,20 @@ impl Crawler {
         let res_text = match self
             .client
             .post("https://app.strava.cz/api/jidelnicky")
-            .body(format!(r#"{{"cislo": "{}", "s5url": "https://wss52.strava.cz/WSStravne5_7/WSStravne5.svc","lang":"CZ","ignoreCert":false }}"#, cantine_id))
+            .body(format!(
+                r#"{{"cislo": "{}", "s5url":"","lang":"CZ","ignoreCert":false }}"#,
+                cantine_id
+            ))
             .send()
             .await
         {
             Ok(res) => match res.error_for_status() {
-                Ok(res) =>{
-                    match res.text().await {
-                        Ok(res_text) => res_text,
-                        Err(_) => return Err("Failed to get cantine menu".to_string()),
-                    }
-                }
-                Err(_) => {
-                    return Err("Failed to get cantine menu".to_string())}
-            }
-           
+                Ok(res) => match res.text().await {
+                    Ok(res_text) => res_text,
+                    Err(_) => return Err("Failed to get cantine menu".to_string()),
+                },
+                Err(_) => return Err("Failed to get cantine menu".to_string()),
+            },
 
             Err(_) => return Err("Failed to get cantine menu".to_string()),
         };
@@ -76,27 +81,34 @@ impl Crawler {
             Ok(cantine_menu) => cantine_menu,
             Err(_) => return Err("Failed to parse cantine menu".to_string()),
         };
-
         Ok(parse_cantine_menu(cantine_menu))
     }
     pub async fn update_cantines_history(&self) -> Result<(), Box<dyn Error>> {
         let cantines = self.get_cantines().await?;
         for cantine in cantines {
-            println!("Updating cantine {}", cantine.name);
+            println!("Updating cantine {} {}", cantine.name, cantine.id);
             let cantine_dishes = match self.get_cantine_menu(&cantine.id).await {
                 Ok(cantine_dishes) => cantine_dishes,
-                Err(_) => continue,
-            };                 
-            let cantine_history = match  self.db_client.insert_dishes(cantine_dishes).await {
-                Ok(cantine_history) => cantine_history,
-                Err(_) => continue,
+                Err(e) => {
+                    println!("Failed to get cantine dishes {}", e);
+                    continue;
+                }
             };
+            let mut cantine_history: HashSet<ObjectId> =
+                match self.db_client.insert_dishes(&cantine_dishes).await {
+                    Ok(cantine_history) => HashSet::from_iter(cantine_history),
+                    Err(e) => {
+                        println!("Failed to insert dishes {}", e);
+                        continue;
+                    }
+                };
+            cantine_history.extend(self.db_client.get_dishes_ids(cantine_dishes).await);
             println!("Items added {}", cantine_history.len());
             self.db_client
                 .insert_cantine(CantineDBEntry {
                     cantine_id: cantine.id,
                     name: cantine.name,
-                    cantine_history: cantine_history,
+                    cantine_history: cantine_history.into_iter().collect(),
                 })
                 .await?;
         }
@@ -105,26 +117,31 @@ impl Crawler {
 }
 fn parse_cantine_menu(cantine_menu: serde_json::Value) -> Vec<DishDBEntry> {
     let mut menu = Vec::new();
-    for (_day, dishes) in cantine_menu.as_object().unwrap() {
-        for dish in dishes.as_array().unwrap() {
+    let cantine_menu = match cantine_menu.as_array() {
+        None => return menu,
+        Some(cm) => match cm.get(0) {
+            None => return menu,
+            Some(cm) => cm,
+        },
+    };
+    for (_day, dishes) in cantine_menu.as_object().unwrap_or(&serde_json::Map::new()) {
+        for dish in skip_none!(dishes.as_array()) {
             let mut allergens = Vec::new();
-            for allergen in dish.get("alergeny").unwrap().as_array().unwrap() {
+            for allergen in skip_none!(skip_none!(dish.get("alergeny")).as_array()) {
                 allergens.push(
-                    allergen
-                        .as_array()
-                        .unwrap()
-                        .get(0)
-                        .unwrap()
-                        .as_str()
-                        .unwrap()
-                        .to_string(),
+                    trim_whitespace(&filter_digits(skip_none!(skip_none!(
+                        skip_none!(allergen.as_array()).get(0)
+                    )
+                    .as_str())))
+                    .to_string(),
                 );
             }
             menu.push(DishDBEntry {
-                name: dish.get("nazev").unwrap().as_str().unwrap().to_string(),
+                name: skip_none!(skip_none!(dish.get("nazev")).as_str()).to_string(),
                 allergens: allergens,
             })
         }
     }
+    println!("{:?}", menu.len());
     menu
 }

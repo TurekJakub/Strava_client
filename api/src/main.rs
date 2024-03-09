@@ -21,6 +21,7 @@ use strava_client::data_struct::{
     SettingsRequestBody, User, UserData,
 };
 use strava_client::strava_client::StravaClient;
+use tokio_cron_scheduler::{Job, JobScheduler};
 mod crawler;
 mod db_client;
 mod utilities;
@@ -31,14 +32,24 @@ struct AppState {
 }
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
-    /*
-    Crawler::new()
-        .await
-        .unwrap()
-        .update_cantines_history()
-        .await
-        .unwrap();
-    */
+
+    let sched = JobScheduler::new().await.expect("Failed to create scheduler");
+    sched.add(
+        Job::new_async("0 0 1 * * *", |_uuid,  _l| {
+            Box::pin(async move {
+                println!("Starting cantine history update...");
+                Crawler::new()
+                    .await
+                    .unwrap()
+                    .update_cantines_history()
+                    .await
+                    .unwrap();
+                println!("Cantine history update finished");
+            })
+        }).expect("Failed to create job")
+    ).await.expect("Failed to add job to scheduler");
+    sched.start().await.expect("Failed to start scheduler");
+
     dotenv::dotenv().ok();
     let state = Data::new(Mutex::new(AppState {
         db_client: DbClient::new().await.unwrap(),
@@ -401,12 +412,12 @@ async fn settings_query(
             Ok(json) => {
                 return succes("result", &json);
             }
-            Err(e) => {
+            Err(_) => {
                 return server_error("Došlo k chybě při načítaní dat z databáze");
             }
         },
         Err(e) => {
-            return server_error("Došlo k chybě při načítaní dat z databáze");
+            return server_error(&e);
         }
     }
 }

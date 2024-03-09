@@ -298,7 +298,7 @@ impl DbClient {
     }
     pub async fn insert_dishes(
         &self,
-        dishes: Vec<DishDBEntry>,
+        dishes: &Vec<DishDBEntry>,
     ) -> Result<Vec<ObjectId>, mongodb::error::Error> {
         let mut updated = Vec::new();
         for dish in dishes {
@@ -326,13 +326,6 @@ impl DbClient {
             Some(dish) => Ok(Some(dish.get_object_id("_id").unwrap().clone())),
             None => Ok(None),
         }
-    }
-    pub async fn get_cantine_history(
-        &self,
-        cantine_id: &str,
-    ) -> Result<Vec<DishDBEntry>, mongodb::error::Error> {
-        // TODO write aggregation
-        Ok(Vec::new())
     }
     async fn get_users_collection(&self) -> Collection<UserDBEntry> {
         let database = self.client.database("strava");
@@ -487,7 +480,7 @@ impl DbClient {
             Err(e) => Err(e.to_string()),
         }
     }
-    async fn get_dishes_ids(&self, dishes: Vec<DishDBEntry>) -> Vec<ObjectId> {
+    pub async fn get_dishes_ids(&self, dishes: Vec<DishDBEntry>) -> Vec<ObjectId> {
         let mut ids = Vec::new();
         for dish in dishes {
             match self.get_dish_id(&dish.name, &dish.allergens).await {

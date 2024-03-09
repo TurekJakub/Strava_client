@@ -20,5 +20,6 @@ indexmap = "2.1.0"
 bson = "2.9.0"
 futures-util = "0.3.30"
 rand = "0.8.5"
+tokio-cron-scheduler = "0.10.0"
 
 

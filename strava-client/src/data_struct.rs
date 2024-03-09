@@ -142,10 +142,10 @@ pub struct UserData{
 }
 #[derive(Serialize, Deserialize,Debug)]
 pub struct CantineDBEntry {
-    #[serde(rename = "cantinaId")]
+    #[serde(rename = "cantineId")]
     pub cantine_id: String,
     pub name: String,
-    #[serde(rename = "cantinaHistory")]
+    #[serde(rename = "cantineHistory")]
     pub cantine_history: Vec<ObjectId>,
 }
 #[derive(Serialize, Deserialize, Debug,Clone,Eq,Hash)]

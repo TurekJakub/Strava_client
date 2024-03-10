@@ -130,6 +130,7 @@ async fn main() -> Result<(), std::io::Error> {
                     )
                     .route(
                         route()
+                        .guard(fn_guard(authorized_guard))
                             .guard(Any(Not(Get())).or(Not(Post())))
                             .to(|| HttpResponse::MethodNotAllowed()),
                     )
@@ -301,6 +302,7 @@ async fn get_user_settings(session: Session, state: Data<Mutex<AppState>>) -> im
     match settings {
         Ok(settings) => match settings {
             Some(settings) => {
+                println!("{:?}", settings);
                 return succes(
                     "settings",
                     serde_json::to_string(&settings).unwrap().as_str(),
@@ -398,13 +400,23 @@ async fn settings_query(
     session: Session,
 ) -> impl Responder {
     let query_string = query.into_inner();
+    let list_to_query = match query_string.list.as_str() {
+        "blacklist" => "blacklistedDishes",
+        "whitelist" => "whitelistedDishes",
+        _ => {
+            return HttpResponse::BadRequest().body(format!(
+                r#"{{"message":"Požadovaná položka neexistuje."}}"#,
+            ));
+        }
+
+    };
     let settings_query = state
         .lock()
         .unwrap()
         .db_client
         .query_settings(
             session.get::<String>("id").unwrap().unwrap().as_str(),
-            &query_string.query,
+            &query_string.query, list_to_query
         )
         .await;
     match settings_query {
@@ -413,7 +425,7 @@ async fn settings_query(
                 return succes("result", &json);
             }
             Err(_) => {
-                return server_error("Došlo k chybě při načítaní dat z databáze");
+                return server_error("Došlo k chybě při načítaní dat z databáze.");
             }
         },
         Err(e) => {
@@ -457,11 +469,9 @@ async fn cantine_history_query(
         .await;
     match history {
         Ok(data) => {
-            println!("{:?}", data);
             return succes("result", serde_json::to_string(&data).unwrap().as_str());
         }
-        Err(e) => {
-            println!("{:?}", e);
+        Err(_) => {
             return server_error("Došlo k chybě při načítaní dat z databáze");
         }
     }

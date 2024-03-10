@@ -41,7 +41,7 @@ pub fn input_to_regex_string(input: &str) -> String {
             ("o", "[o,ó]"),
         ],
     );
-    str.to_string()
+    str
 }
 pub fn trim_whitespace(input: &str) -> String {
     let res: Vec<_> = input.split_whitespace().collect();

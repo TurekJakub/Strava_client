@@ -78,7 +78,7 @@ impl DbClient {
                     doc! {
                         "$lookup": doc! {
                             "from": "dishes",
-                            "localField": "blacklistedDishes",
+                            "localField": "settings.blacklistedDishes",
                             "foreignField": "_id",
                             "as": "blacklistedDish"
                         }
@@ -86,9 +86,9 @@ impl DbClient {
                     doc! {
                         "$lookup": doc! {
                             "from": "dishes",
-                            "localField": "whitlistedDishes",
+                            "localField": "settings.whitelistedDishes",
                             "foreignField": "_id",
-                            "as": "whitlistedDish"
+                            "as": "whitelistedDish"
                         }
                     },
                     doc! {
@@ -417,7 +417,7 @@ impl DbClient {
             Err(e) => Err(e.to_string()),
         }
     } 
-    pub async fn query_settings(&self, id: &str, query: &str) -> Result<Vec<String>, String> { 
+    pub async fn query_settings(&self, id: &str, query: &str,list_to_query: &str) -> Result<Vec<DishDBEntry>, String> { 
         let results_stream = self.get_users_collection().await.aggregate([
             doc! {
                 "$match": doc! {
@@ -426,27 +426,29 @@ impl DbClient {
             },
             doc! {
                 "$unwind": doc! {
-                    "path": "$settings.blacklistedDishes",
+                    "path": format!("$settings.{}", list_to_query),
                     "preserveNullAndEmptyArrays": false
                 }
             },
             doc! {
                 "$lookup": doc! {
                     "from": "dishes",
-                    "localField": "settings.blacklistedDishes",
+                    "localField": format!("settings.{}", list_to_query),
                     "foreignField": "_id",
-                    "as": "settings.blacklistedDishes"
+
+                    "as": format!("settings.{}", list_to_query)
                 }
             },
             doc! {
                 "$unwind": doc! {
-                    "path": "$settings.blacklistedDishes",
+                    "path": format!("$settings.{}", list_to_query),
                     "preserveNullAndEmptyArrays": false
                 }
             },
             doc! {
                 "$match": doc! {
-                    "settings.blacklistedDishes.name": doc! {
+                  
+                    format!("settings.{}.name", list_to_query): doc! {
                         "$regex": Regex { pattern: input_to_regex_string(query), options: "i".to_string() }
                     }
                 }
@@ -455,7 +457,7 @@ impl DbClient {
                 "$group": doc! {
                     "_id": "_id",
                     "results": doc! {
-                        "$push": "$settings.blacklistedDishes"
+                        "$push": format!("$settings.{}", list_to_query)
                     }
                 }
             }
@@ -464,7 +466,7 @@ impl DbClient {
             Ok(mut stream) => match stream.next().await {
                 Some(result) => match result {
                     Ok(doc) => match bson::from_document::<SettingsQuery>(doc) {
-                        Ok(results) => return Ok(results.query_result),
+                        Ok(results) => return Ok(results.results),
                         Err(e) => {
                             return Err(e.to_string());
                         }

@@ -107,11 +107,11 @@
 				<input
 					class="non-expand focus:border-none focus:ring-0 focus:outline-offset-0 focus:outline-violet-700 rounded-sm"
 					type="checkbox"
-					name="stay_logged"
+					name="stayLogged"
 					id="stayLogged"
 					bind:value={stayLogged}
 				/>
-				<label class="text-white ms-2" for="stayLoggeda">Zůstat přihlášen</label>
+				<label class="text-white ms-2" for="stayLogged">Zůstat přihlášen</label>
 			</div>
 			<button
 				class="bg-violet-700 mt-3 rounded-md menu-item focus:ring-0 focus:border-none focus:outline-white focus:outline-1 outline-none focus:outline-offset-0 dark:dark-mode-autofill dark:bg-violet-700 dark:text-white"

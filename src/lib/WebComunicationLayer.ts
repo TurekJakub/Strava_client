@@ -107,9 +107,9 @@ const queryCantineHistory = async (
 	);
 };
 
-const querySettings = async (query: string): Promise<Result<string[], string>> => {
-	let url = `/settings_query?query=${encodeURIComponent(query)}`;
-	return await sendRequest<QueryResponse<string>, ErrorResponse, string[], string>(
+const querySettings = async (query: string, listToQuery: string): Promise<Result<Dish[], string>> => {
+	let url = `/settings_query?query=${encodeURIComponent(query)}&list=${listToQuery}`;
+	return await sendRequest<QueryResponse<string>, ErrorResponse, Dish[], string>(
 		url,
 		'GET',
 		null,

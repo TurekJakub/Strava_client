@@ -200,7 +200,7 @@ pub struct DBHistoryQuery {
 #[derive(Deserialize, Serialize)]
 pub struct SettingsQuery {
     pub _id: String,
-    pub query_result: Vec<String>,
+    pub results: Vec<DishDBEntry>,
 }
 #[derive(Deserialize, Serialize)]
 pub struct DBHistoryQueryUrlString {
@@ -210,4 +210,5 @@ pub struct DBHistoryQueryUrlString {
 #[derive(Deserialize, Serialize)]
 pub struct SettingsQueryUrlString {
     pub query: String,
+    pub list: String,
 }

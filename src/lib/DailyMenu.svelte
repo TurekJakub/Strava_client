@@ -52,7 +52,7 @@
 				bind:value={name}
 				on:change|preventDefault={selectDish}
 			/>
-			<p class="bg-slate-800 text-white text-lg">{name}</p>
+			<p class="bg-slate-800 text-white text-lg">{name} <span class="text-gray-400">{dish.allergens}</span></p>
 		</div>
 	{/each}
 </div>

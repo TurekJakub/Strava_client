@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { json } from '@sveltejs/kit';
 	import { createEventDispatcher } from 'svelte';
 
 	export let list: Dish[] = [];
@@ -15,10 +14,14 @@
 
 		console.log(draggedItem);
 	}
+	function handeleQuery(Event: Event) {
+		dispatch('query', (Event.target as HTMLInputElement).value);
+	
+	}
 </script>
 
 <div
-	class="w-1/2 rounded-md h-96 overflow-y-scroll scrollbar-none border-2 border-white ms-2 me-8 mb-2 px-3 pb-3"
+	class="w-1/2 rounded-md h-96 overflow-y-scroll bg-slate-700 scrollbar-none border-2 border-white mx-4 mb-2 px-3"
 	on:drop={() => {
 		dispatch('drop');
 	}}
@@ -26,13 +29,13 @@
 	role="cell"
 	tabindex="-1"
 >
-	<div class="sticky top-0 bg-slate-800 py-3">
+	<div class="sticky top-0 bg-slate-700 py-2">
 		<div
-			class="border-separate border-2 border-white flex flex-row w-full rounded-full mx-auto p-2 h-10 text-center sticky top-0"
+			class="border-separate border-2 bg-slate-800 border-white flex flex-row w-full rounded-full mx-auto p-2 h-10 text-center sticky top-0"
 		>
 			<input
 				class="dark:dark-mode-autofill p-1 bg-slate-800 text-white border-none w-full focus-within:border-none focus-within:ring-0 focus-within:outline-none"
-				type="text"
+				type="text" on:input={handeleQuery}
 			/>
 			<svg
 				class="text-gray-800 dark:text-white block h-8 w-8 me-2 my-auto"
@@ -51,11 +54,12 @@
 				/>
 			</svg>
 		</div>
+		
 	</div>
 
 	{#each list as item}
 		<div
-			class="flex flex-col border-2 border-white rounded-md p-2 mt-2 opacity-100"
+			class="flex flex-col border-2 bg-slate-800 border-white rounded-md p-3 mt-3 opacity-100"
 			draggable="true"
 			on:dragstart={onDragStart}
 			role="cell"
@@ -65,4 +69,5 @@
 			<p class="text-gray-400">{item.allergens}</p>
 		</div>
 	{/each}
+	<div class="sticky bottom-0 h-3 bg-slate-700 rounded-none w-full"></div>
 </div>

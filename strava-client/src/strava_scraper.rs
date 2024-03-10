@@ -7,29 +7,50 @@ use scraper::{Html, Selector};
 use std::process::{Child, Command};
 use std::time::Duration;
 use url::Url;
+
+macro_rules! skip_none {
+    ($res:expr) => {
+        match $res {
+            Some(val) => val,
+            None => {
+                continue;
+            }
+        }
+    };
+}
+
 pub struct Scraper {
     client: Client,
     gecko: Child,
     firefox: Child,
 }
 impl Scraper {
-    pub async fn new() -> Scraper {
-        Scraper {
-            firefox: Command::new("firefox")
+    pub async fn new() -> Result<Scraper, String> {
+        Ok(Scraper {
+            firefox: match Command::new("firefox")
                 .env("PATH", "./bin/firefox")
                 .args(["--marionette", "--headless"])
                 .spawn()
-                .expect("failed to execute process"),
-            gecko: Command::new("geckodriver")
+            {
+                Ok(firefox) => firefox,
+                Err(_) => return Err("Nepodařilo se spustit prohlížeč".to_string()),
+            },
+            gecko: match Command::new("geckodriver")
                 .env("PATH", "./bin")
                 .args(["--marionette-port", "2828", "--connect-existing"])
                 .spawn()
-                .expect("UwU"),
-            client: ClientBuilder::native()
+            {
+                Ok(gecko) => gecko,
+                Err(_) => return Err("Nepodařilo se spustit geckodriver".to_string()),
+            },
+            client: match ClientBuilder::native()
                 .connect("http://localhost:4444")
                 .await
-                .expect("failed to connect to WebDriver"),
-        }
+            {
+                Ok(client) => client,
+                Err(_) => return Err("Nepodařilo se připojit k prohlížeči".to_string()),
+            },
+        })
     }
     pub async fn login(&self, user: &User<'_>) -> Result<(), String> {
         match self.client.goto("https://app.strava.cz/").await {
@@ -45,7 +66,10 @@ impl Scraper {
             ))
             .await;
         match cookie_button {
-            Ok(x) => x.click().await.unwrap(),
+            Ok(btn) => match btn.click().await {
+                Ok(_) => (),
+                Err(_) => return Err("Chyba při přihlášení".to_string()),
+            },
             Err(_) => (),
         };
         self.client
@@ -88,8 +112,7 @@ impl Scraper {
         request_builder: &RequestBuilder,
     ) -> Result<IndexMap<Date, IndexMap<String, DishInfo>>, String> {
         let api_data = request_builder.do_get_user_menu_request().await?;
-        println!("{:?}", api_data);
-        let page = self.get_menu_page().await;
+        let page = self.get_menu_page().await?;
         let now = chrono::Local::now();
         let mut menu = IndexMap::new();
         let day_selector =
@@ -110,10 +133,7 @@ impl Scraper {
             let dishes_of_day = daily_menu_html.select(&dishes_selector);
             let mut daily_menu = IndexMap::new();
             let date = Date::new(
-                daily_menu_html
-                    .select(&date_selector)
-                    .next()
-                    .unwrap()
+                skip_none!(daily_menu_html.select(&date_selector).next())
                     .inner_html()
                     .split(" ")
                     .skip(1)
@@ -152,11 +172,6 @@ impl Scraper {
                     }
                     None => continue,
                 }
-                println!(
-                    "{}, {:?}",
-                    dish_name,
-                    api_data.get(&date).unwrap().get(&dish_name)
-                );
             }
             if !daily_menu.is_empty() {
                 menu.insert(date, daily_menu);
@@ -164,18 +179,29 @@ impl Scraper {
         }
         Ok(menu)
     }
-    async fn get_menu_page(&self) -> Html {
-        self.client
+    async fn get_menu_page(&self) -> Result<Html, String> {
+        match self
+            .client
             .wait()
             .for_url(Url::parse("https://app.strava.cz/").unwrap())
             .await
-            .unwrap();
-        Html::parse_document(self.client.source().await.unwrap().as_str())
+        {
+            Ok(_) => (),
+            Err(_) => return Err("Nepodařilo se načíst stránku".to_string()),
+        }
+        match self.client.source().await {
+            Ok(page) => Ok(Html::parse_document(&page)),
+            Err(_) => Err("Nepodařilo se načíst stránku".to_string()),
+        }
     }
 
-    pub async fn close(mut self) {
-        self.client.close().await.unwrap();
-        self.gecko.kill().unwrap();
-        self.firefox.kill().unwrap();
+    pub async fn close(mut self) -> Result<(), String> {
+        if self.client.close().await.is_err()
+            || self.gecko.kill().is_err()
+            || self.firefox.kill().is_err()
+        {
+            return Err("Došlo k chybě při ukončování".to_string());
+        }
+        Ok(())
     }
 }

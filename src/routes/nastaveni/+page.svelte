@@ -6,10 +6,13 @@
 	import { goto } from '$app/navigation';
 	import Alert from '$lib/Alert.svelte';
 	import BlackListMenu from '$lib/BlackListMenu.svelte';
+	import BlackList from '$lib/BlackList.svelte';
 	let error: string = '';
 	let settings: boolean = false;
-	let historyResults: Dish[] = [];
-	let settingsResults: Dish[] = [];
+	let blackListSource: Dish[] = [];
+	let blackListTarget: Dish[] = [];
+	let whiteListSource: Dish[] = [];
+	let whiteListTarget: Dish[] = [];
 	let allergens: string[] = [
 		'Lepek',
 		'Korýši',
@@ -32,7 +35,7 @@
 		let res = await queryCantineHistory($cantine, (e.target as HTMLInputElement).value);
 		switch (res._t) {
 			case 'success':
-				historyResults = res.data;
+				blackListSource = res.data;
 				break;
 			case 'failure':
 				console.log(res.error);
@@ -43,7 +46,8 @@
 		let settingsRes = await fetchSettings();
 		switch (settingsRes._t) {
 			case 'success':
-				settingsResults = settingsRes.data.whitelistedDishes;
+				blackListTarget = settingsRes.data.blacklistedDishes;
+				whiteListTarget = settingsRes.data.whitelistedDishes;
 				allergensGroup = settingsRes.data.blacklistedAllergens;
 				break;
 			case 'failure':
@@ -56,7 +60,8 @@
 		let historyRes = await queryCantineHistory($cantine, '');
 		switch (historyRes._t) {
 			case 'success':
-				historyResults = historyRes.data;
+				blackListSource = historyRes.data;
+				whiteListSource = historyRes.data;
 				break;
 			case 'failure':
 				error = historyRes.error;
@@ -66,8 +71,8 @@
 </script>
 
 <Navbar />
-<!--<nav class="block md:hidden z-50 sticky top-0 bg-slate-800 h-6 w-full border-1 border-white"></nav>-->
 <div class="w-full md:w-3/4 flex flex-row justify-center py-2 mx-auto">
+	<!--
 	<div
 		id="navigation"
 		class="ms-2 hidden w-52 rounded-md h-28 bg-slate-800 me-8 md:flex flex-col justify-start"
@@ -85,6 +90,7 @@
 			}}>Automatického odhlašování</button
 		>
 	</div>
+    -->
 	{#key settings}
 		{#if settings}
 			<div class="rounded-md h-full bg-slate-800" style="width: calc(100% + 64px);"></div>
@@ -107,7 +113,10 @@
 					{/each}
 				</div>
 				<h2 class="ms-2 text-white text-lg mb-2">Pokrmy</h2>
-				<BlackListMenu bind:sourceList={historyResults} bind:targetList={settingsResults} />
+				<h2 class="ms-2 text-white text-lg mb-2">Automaticky odhlašované pokrmy</h2>
+				<BlackListMenu bind:sourceList={blackListSource} bind:targetList={blackListTarget} />
+				<h2 class="ms-2 text-white text-lg mb-2">Preferované pokrmy</h2>
+				<BlackListMenu bind:sourceList={whiteListSource} bind:targetList={whiteListTarget} />
 			</div>
 		{/if}
 	{/key}

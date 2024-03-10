@@ -76,11 +76,11 @@ impl StravaClient {
         }
     }
     pub async fn login(&self, user: &User<'_>) -> Result<UserInfo, String> {
-        match self.settings.settings.get("data_source").unwrap().as_str() {
+        match self.settings.settings.get("data_source").unwrap_or(&"api".to_owned()).as_str() {
             "api" => (),
             "scraper" => {
                 self.screaper
-                    .get_or_init(|| Scraper::new())
+                    .get_or_init(|| async {Scraper::new().await.unwrap()} )
                     .await
                     .login(&user)
                     .await?

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, future::IntoFuture, time::SystemTime};
+use std::{collections::HashMap, time::SystemTime};
 
 use crate::data_struct::{Date, DishInfo, OrdersCancelingSettings, User, UserInfo};
 use indexmap::IndexMap;

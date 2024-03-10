@@ -11,8 +11,8 @@ use std::env;
 use std::path::PathBuf;
 use std::time::SystemTime;
 use strava_client::data_struct::{
-    CantineDBEntry, DBHistoryQuery, DishDBEntry, OrdersCancelingSettings, SettingsDBEntry,
-    SettingsQuery, UserDBEntry, UserData,
+    CantineDBEntry, Query, DishDBEntry, OrdersCancelingSettings, SettingsDBEntry,
+    UserDBEntry, UserData,
 };
 pub struct DbClient {
     client: mongodb::Client,
@@ -343,9 +343,9 @@ impl DbClient {
     pub async fn query_cantine_history(
         &self,
         cantine_id: &str,
-        query: &str,
+        query: &str
     ) -> Result<Vec<DishDBEntry>, String> {
-        let reslut_stream = self
+        let reslut_stream:Result<mongodb::Cursor<Document>, mongodb::error::Error> = self
             .get_cantines_collection()
             .await
             .aggregate(
@@ -385,7 +385,7 @@ impl DbClient {
                     doc! {
                         "$group": doc! {
                             "_id": "id",
-                            "dishes": doc! {
+                            "results": doc! {
                                 "$push": "$dish"
                             }
                         }
@@ -394,29 +394,96 @@ impl DbClient {
                 None,
             )
             .await;
-        match reslut_stream {
-            Ok(mut stream) => {
-                let result_option = stream.next().await;
-                match result_option {
-                    Some(result) => match result {
-                        Ok(doc) => match bson::from_document::<DBHistoryQuery>(doc) {
-                            Ok(results) => Ok(results.dishes),
-                            Err(e) => {
-                                return Err(e.to_string());
-                            }
-                        },
-                        Err(e) => {
-                            return Err(e.to_string());
+        parse_result_stream_to_results(reslut_stream).await
+        
+    }
+   
+    pub async fn query_cantine_history_for_authorized_user( &self,
+        cantine_id: &str,
+        query: &str,list: &str, user_id:&str) -> Result<Vec<DishDBEntry>, String>{
+            let reslut_stream:Result<mongodb::Cursor<Document>, mongodb::error::Error> = self
+            .get_cantines_collection()
+            .await
+            .aggregate(
+                [
+                    doc! {
+                        "$match": doc! {
+                            "cantineId": cantine_id
                         }
                     },
-                    None => {
-                        return Ok(Vec::new());
+                    doc! {
+                        "$lookup": doc! {
+                            "from": "users",
+                            "pipeline": [
+                                doc! {
+                                    "$match": doc! {
+                                        "id": user_id
+                                    }
+                                }
+                            ],
+                            "as": "user"
+                        }
+                    },
+                    doc! {
+                        "$unwind": doc! {
+                            "path": "$user"
+                        }
+                    },
+                    doc! {
+                        "$project": doc! {
+                            "_id": "$_id",
+                            "name": "$name",
+                            "cantineId": "$cantineId",
+                            "cantineHistory": doc! {
+                                "$setDifference": [
+                                    "$cantineHistory",
+                                    format!("$user.settings.{}", list)
+                                ]
+                            }
+                        }
+                    },  
+                    doc! {
+                        "$unwind": doc! {
+                            "path": "$cantineHistory",
+                            "preserveNullAndEmptyArrays": false
+                        }
+                    },
+                    doc! {
+                        "$lookup": doc! {
+                            "from": "dishes",
+                            "localField": "cantineHistory",
+                            "foreignField": "_id",
+                            "as": "dish"
+                        }
+                    },
+                    doc! {
+                        "$unwind": doc! {
+                            "path": "$dish",
+                            "preserveNullAndEmptyArrays": false
+                        }
+                    },
+                    doc! {
+                        "$match": doc! {
+                            "dish.name": doc! {
+                                "$regex": Regex { pattern: input_to_regex_string(query), options: "i".to_string() }
+                        }
                     }
-                }
-            }
-            Err(e) => Err(e.to_string()),
-        }
-    } 
+                    },
+                    doc! {
+                        "$group": doc! {
+                            "_id": "id",
+                            "results": doc! {
+                                "$push": "$dish"
+                            }
+                        }
+                    },
+                ],
+                None,
+            )
+            .await;
+        parse_result_stream_to_results(reslut_stream).await
+
+    }
     pub async fn query_settings(&self, id: &str, query: &str,list_to_query: &str) -> Result<Vec<DishDBEntry>, String> { 
         let results_stream = self.get_users_collection().await.aggregate([
             doc! {
@@ -462,25 +529,7 @@ impl DbClient {
                 }
             }
         ], None).await;
-        match results_stream {
-            Ok(mut stream) => match stream.next().await {
-                Some(result) => match result {
-                    Ok(doc) => match bson::from_document::<SettingsQuery>(doc) {
-                        Ok(results) => return Ok(results.results),
-                        Err(e) => {
-                            return Err(e.to_string());
-                        }
-                    },
-                    Err(e) => {
-                        return Err(e.to_string());
-                    }
-                },
-                None => {
-                    return Ok(Vec::new());
-                }
-            },
-            Err(e) => Err(e.to_string()),
-        }
+        parse_result_stream_to_results(results_stream).await
     }
     pub async fn get_dishes_ids(&self, dishes: Vec<DishDBEntry>) -> Vec<ObjectId> {
         let mut ids = Vec::new();
@@ -513,4 +562,28 @@ async fn connect() -> Result<mongodb::Client, mongodb::error::Error> {
     client_options.tls = Some(Tls::Enabled(tls_options));
     let client = Client::with_options(client_options)?;
     Ok(client)
+}
+async fn parse_result_stream_to_results<T: serde::de::DeserializeOwned>(stream: Result<mongodb::Cursor<Document>, mongodb::error::Error>) -> Result<Vec<T>, String> {
+    match stream {
+        Ok(mut stream) => {
+            let result_option = stream.next().await;
+            match result_option {
+                Some(result) => match result {
+                    Ok(doc) => match bson::from_document::<Query<T>>(doc) {
+                        Ok(results) => Ok(results.results),
+                        Err(e) => {
+                            return Err(e.to_string());
+                        }
+                    },
+                    Err(e) => {
+                        return Err(e.to_string());
+                    }
+                },
+                None => {
+                    return Ok(Vec::new());
+                }
+            }
+        }
+        Err(e) => Err(e.to_string()),
+    }
 }

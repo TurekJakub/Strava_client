@@ -18,7 +18,7 @@ use db_client::DbClient;
 use std::sync::Mutex;
 use strava_client::data_struct::{
     Config, DBHistoryQueryUrlString, OrderDishRequestBody, SettingsQueryUrlString,
-    SettingsRequestBody, User, UserData,
+    SettingsRequestBody, User, UserData,AuthorizedDBHistoryQueryUrlString
 };
 use strava_client::strava_client::StravaClient;
 use tokio_cron_scheduler::{Job, JobScheduler};
@@ -157,7 +157,7 @@ async fn main() -> Result<(), std::io::Error> {
                     .default_service(route().to(unauthorized)),
             )
             .service(resource("/user_status").route(get().to(user_status)))
-            .service(resource("/cantine_history").route(get().to(cantine_history_query)))
+            .service(resource("/cantine_history").route(get().guard(Not(fn_guard(authorized_guard))).to(cantine_history_query)).route(get().guard(fn_guard(authorized_guard)).to(authorized_cantine_history_query)))
             .service(
                 resource("/settings_query")
                     .route(get().guard(fn_guard(authorized_guard)).to(settings_query))
@@ -466,6 +466,37 @@ async fn cantine_history_query(
         .unwrap()
         .db_client
         .query_cantine_history(&query_string.cantine_id, &query_string.query)
+        .await;
+    match history {
+        Ok(data) => {
+            return succes("result", serde_json::to_string(&data).unwrap().as_str());
+        }
+        Err(_) => {
+            return server_error("Došlo k chybě při načítaní dat z databáze");
+        }
+    }
+}
+async fn authorized_cantine_history_query( 
+    query: Query<AuthorizedDBHistoryQueryUrlString>,
+    state: Data<Mutex<AppState>>,
+    session: Session
+) -> impl Responder {
+    let query_string = query.into_inner();
+    let list = match query_string.list.as_str() {
+        "blacklist" => "blacklistedDishes",
+        "whitelist" => "whitelistedDishes",
+        _ => {
+            return HttpResponse::BadRequest().body(format!(
+                r#"{{"message":"Požadovaná položka neexistuje."}}"#,
+            ));
+        }
+        
+    };
+    let history = state
+        .lock()
+        .unwrap()
+        .db_client
+        .query_cantine_history_for_authorized_user(&query_string.cantine_id, &query_string.query, list,&session.get::<String>("id").unwrap().unwrap())
         .await;
     match history {
         Ok(data) => {

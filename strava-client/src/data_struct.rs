@@ -193,19 +193,20 @@ pub struct UserInfo {
     pub account: f64,
 }
 #[derive(Deserialize, Serialize)]
-pub struct DBHistoryQuery {
+pub struct Query<T> {
     pub _id: String,
-    pub dishes: Vec<DishDBEntry>,
-}
-#[derive(Deserialize, Serialize)]
-pub struct SettingsQuery {
-    pub _id: String,
-    pub results: Vec<DishDBEntry>,
+    pub results: Vec<T>,
 }
 #[derive(Deserialize, Serialize)]
 pub struct DBHistoryQueryUrlString {
     pub cantine_id: String,
     pub query: String,
+}
+#[derive(Deserialize, Serialize)]
+pub struct AuthorizedDBHistoryQueryUrlString {
+    pub cantine_id: String,
+    pub query: String,
+    pub list: String,
 }
 #[derive(Deserialize, Serialize)]
 pub struct SettingsQueryUrlString {

@@ -182,19 +182,30 @@ impl DbClient {
         let database = self.client.database("strava");
         let collection: Collection<UserDBEntry> = database.collection("users");
         match collection
-            .update_one(
-                doc! { "id": user.id },
-                doc! {
-                        "$set": doc! { "updateTime": serde_json::to_string(&user.settings_update_time).unwrap(),
-                                      "settings": serde_json::to_string(&SettingsDBEntry { 
-                                           whitelisted_dishes:self.get_dishes_ids(user.settings.whitelisted_dishes).await,
-                                           blacklisted_dishes:self.get_dishes_ids(user.settings.blacklisted_dishes).await,
-                                           strategy: user.settings.strategy,
-                                           blacklisted_allergens: user.settings.blacklisted_allergens}).unwrap()
-                                        }
-                },
-                None,
-            )
+             .aggregate([
+                /*
+                [
+    doc! {
+        "$match": doc! {
+            "id": "turekj5763"
+        }
+    },
+    doc! {
+        "$project": doc! {
+            "_id": "$_id",
+            "id": "$id",
+            "list": doc! {
+                "$setDifference": [
+                    "$settings.blacklistedDishes",
+                    []
+                ]
+            }
+        }
+    }
+] 
+                */
+
+             ],None)
             .await{
              Ok(_) => Ok(()),
              Err(e) => Err(e.to_string())

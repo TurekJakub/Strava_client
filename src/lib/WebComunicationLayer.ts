@@ -129,7 +129,15 @@ const fetchSettings = async (): Promise<Result<Settings, string>> => {
 		'settings'
 	);
 };
-
+const updateSettings = async (settings: Settings): Promise<Result<string, string>> => {
+	return await sendRequest<SuccessResponse, ErrorResponse, string, string>(
+		'/update_settings',
+		'POST',
+		settings,
+		'message',
+		'message'
+	);
+};
 export {
 	login,
 	getUserMenu,

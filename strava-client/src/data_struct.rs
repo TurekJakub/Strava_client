@@ -213,3 +213,8 @@ pub struct SettingsQueryUrlString {
     pub query: String,
     pub list: String,
 }
+#[derive(Deserialize, Serialize)]
+pub struct SetSettingsUrlString {
+    pub action: String,
+    pub list: String,
+}

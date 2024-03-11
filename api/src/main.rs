@@ -17,8 +17,7 @@ use crate::crawler::Crawler;
 use db_client::DbClient;
 use std::sync::Mutex;
 use strava_client::data_struct::{
-    Config, DBHistoryQueryUrlString, OrderDishRequestBody, SettingsQueryUrlString,
-    SettingsRequestBody, User, UserData,AuthorizedDBHistoryQueryUrlString
+    AuthorizedDBHistoryQueryUrlString, Config, DBHistoryQueryUrlString, DishDBEntry, OrderDishRequestBody, OrdersCancelingSettings, SetSettingsUrlString, SettingsDBEntry, SettingsQueryUrlString, User, UserData
 };
 use strava_client::strava_client::StravaClient;
 use tokio_cron_scheduler::{Job, JobScheduler};
@@ -319,22 +318,64 @@ async fn set_user_settings(
     session: Session,
     req_body: String,
     state: Data<Mutex<AppState>>,
+    query: Query<SetSettingsUrlString> 
 ) -> impl Responder {
-    let settings = serde_json::from_str::<SettingsRequestBody>(&req_body);
-    match settings {
-        Ok(settings) => {
-            let settings = UserData {
-                id: session.get::<String>("session_id").unwrap().unwrap(),
-                settings: settings.settings,
-                settings_update_time: settings.settings_update_time,
-            };
-            let res = state.lock().unwrap().db_client.insert_user(settings).await;
-            match res {
+    let item = serde_json::from_str::<DishDBEntry>(&req_body);
+    let query_string = query.into_inner();
+    match item {
+        Ok(item) => {
+            let state = state.lock().unwrap();
+            match state.db_client.get_user(&session.get::<String>("id").unwrap().unwrap()).await {
+                Ok(Some(_)) => {
+                    match state.db_client.update_user_settings(&session
+                        .get::<String>("id").unwrap().unwrap(), &query_string.list, &query_string.action, item).await {
                 Ok(_) => succes("message", r#""new settings was succesfully saved""#),
                 Err(_) => {
                     server_error("server error occurred while saving user data, try it again later")
                 }
             }
+                },
+                Ok(None) => {
+                    let mut blacklist = Vec::new();
+                    let mut whitelist = Vec::new();
+                    let mut allergens = Vec::new();
+                    match query_string.list.as_str() {
+                       "balcklist" => {
+                           blacklist.push(item);
+                       }
+                          "whitelist" => {
+                            whitelist.push(item);
+                          }
+                       "allergens" => {
+                            allergens.push(item);
+                       }
+                            _ => {
+                                return HttpResponse::BadRequest()
+                                    .body(format!(r#"{{"message":"invalid request body"}}"#));
+                            }
+                    }
+
+                   let user = UserData {
+                        id: session.get::<String>("id").unwrap().unwrap().clone(),
+                        settings: OrdersCancelingSettings {
+                            blacklisted_dishes: blacklist,
+                            whitelisted_dishes: whitelist,
+                            blacklisted_allergens: Vec::new(),
+                            strategy: "cancle".to_string(),
+                        },
+                        settings_update_time : std::time::SystemTime::now() 
+                    };
+                   match state.db_client.create_user(user).await {
+                Ok(_) => succes("message", r#""new settings was succesfully saved""#),
+                Err(_) => {
+                    return server_error("server error occurred while saving user data, try it again later")
+                   }
+                }},
+                Err(_) => {
+                    return server_error("server error occurred while saving user data, try it again later")
+                }
+            }
+                       
         }
         Err(_) => {
             return HttpResponse::BadRequest()
@@ -400,23 +441,13 @@ async fn settings_query(
     session: Session,
 ) -> impl Responder {
     let query_string = query.into_inner();
-    let list_to_query = match query_string.list.as_str() {
-        "blacklist" => "blacklistedDishes",
-        "whitelist" => "whitelistedDishes",
-        _ => {
-            return HttpResponse::BadRequest().body(format!(
-                r#"{{"message":"Požadovaná položka neexistuje."}}"#,
-            ));
-        }
-
-    };
     let settings_query = state
         .lock()
         .unwrap()
         .db_client
         .query_settings(
             session.get::<String>("id").unwrap().unwrap().as_str(),
-            &query_string.query, list_to_query
+            &query_string.query, &query_string.list
         )
         .await;
     match settings_query {
@@ -482,21 +513,11 @@ async fn authorized_cantine_history_query(
     session: Session
 ) -> impl Responder {
     let query_string = query.into_inner();
-    let list = match query_string.list.as_str() {
-        "blacklist" => "blacklistedDishes",
-        "whitelist" => "whitelistedDishes",
-        _ => {
-            return HttpResponse::BadRequest().body(format!(
-                r#"{{"message":"Požadovaná položka neexistuje."}}"#,
-            ));
-        }
-        
-    };
     let history = state
         .lock()
         .unwrap()
         .db_client
-        .query_cantine_history_for_authorized_user(&query_string.cantine_id, &query_string.query, list,&session.get::<String>("id").unwrap().unwrap())
+        .query_cantine_history_for_authorized_user(&query_string.cantine_id, &query_string.query,&query_string.list,&session.get::<String>("id").unwrap().unwrap())
         .await;
     match history {
         Ok(data) => {

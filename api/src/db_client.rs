@@ -43,19 +43,7 @@ impl DbClient {
             None => Ok(None),
         }
     }
-    pub async fn insert_user(&self, user: UserData) -> Result<(), String> {
-        match self.get_user(&user.id).await? {
-            Some(_) => {
-                self.update_user(user).await?;
-                Ok(())
-            }
-            None => {
-                self.create_user(user).await?;
-                Ok(())
-            }
-        }
-    }
-    async fn get_user(&self, id: &str) -> Result<Option<UserData>, String> {
+    pub async fn get_user(&self, id: &str) -> Result<Option<UserData>, String> {
         let collection = self.get_users_collection().await;
         let mut user_res = match collection
             .aggregate(
@@ -161,7 +149,7 @@ impl DbClient {
     /*
 
     */
-    async fn create_user(&self, user: UserData) -> Result<(), String> {
+    pub async fn create_user(&self, user: UserData) -> Result<(), String> {
         let collection = self.get_users_collection().await;
         let user = UserDBEntry {
             id: user.id,
@@ -182,34 +170,80 @@ impl DbClient {
         let database = self.client.database("strava");
         let collection: Collection<UserDBEntry> = database.collection("users");
         match collection
-             .aggregate([
-                /*
-                [
-    doc! {
-        "$match": doc! {
-            "id": "turekj5763"
-        }
-    },
-    doc! {
-        "$project": doc! {
-            "_id": "$_id",
-            "id": "$id",
-            "list": doc! {
-                "$setDifference": [
-                    "$settings.blacklistedDishes",
-                    []
-                ]
-            }
-        }
-    }
-] 
-                */
-
-             ],None)
+            .update_one(
+                doc! { "id": user.id },
+                doc! {
+                        "$set": doc! { "updateTime": serde_json::to_string(&user.settings_update_time).unwrap(),
+                                      "settings": serde_json::to_string(&SettingsDBEntry { 
+                                           whitelisted_dishes:self.get_dishes_ids(user.settings.whitelisted_dishes).await,
+                                           blacklisted_dishes:self.get_dishes_ids(user.settings.blacklisted_dishes).await,
+                                           strategy: user.settings.strategy,
+                                           blacklisted_allergens: user.settings.blacklisted_allergens}).unwrap()
+                                        }
+                },
+                None,
+            )
             .await{
              Ok(_) => Ok(()),
              Err(e) => Err(e.to_string())
             }
+    }
+    pub async fn update_user_settings(&self, user_id:&str, list: &str, action: &str, item: DishDBEntry) -> Result<(), String> {
+        let list = match list {
+            "blacklist" => "blacklistedDishes",
+            "whitelist" => "whitelistedDishes",
+            _ => return Err("Požadovaná položka neexistuje".to_string())};
+        let id = match self.get_dish_id(&item.name, &item.allergens).await {
+            Ok(Some(id)) => id,
+            Ok(None) => { match self.insert_dish(&item).await {
+                Ok(Some(id)) => id,
+                Ok(None) => return Err("Chyba při zápisu do databáze".to_string()),
+                Err(_) => return Err("Chyba při zápisu do databáze".to_string()),
+            }},
+            Err(_) => return Err("Chyba při zápisu do databáze".to_string()),
+        };
+        let action_doc =  match action {
+            "add" => doc! {
+                "$setUnion": [
+                    format!("$settings.{}",list),
+                     vec![id]
+                ]
+            },
+            
+            "remove" => doc! {
+                "$setDifference": [
+                    format!("$settings.{}",list),
+                     vec![id]
+                ]
+            },
+            _ => return Err("Požadovaná neznámá akce".to_string()),
+        };
+            
+        match self.get_users_collection().await.aggregate([
+            doc! {
+                "$match": doc! {
+                    "id": user_id
+                }
+            },
+            doc! {
+                "$project": doc! {
+                    "_id": "$_id",
+                    "id": "$id",
+                    "list": action_doc
+                }
+            },
+            doc! {
+                "$merge": doc! {
+                    "into": "users",
+                    "on": "_id",
+                    "whenMatched": "replace",
+                    "whenNotMatched": "insert"
+                }
+            }
+        ],None).await{
+            Ok(_) => Ok(()),
+            Err(_) => Err("Chyba při zápisu do databáze".to_string())
+        }
     }
     pub async fn get_cantine(
         &self,
@@ -412,6 +446,11 @@ impl DbClient {
     pub async fn query_cantine_history_for_authorized_user( &self,
         cantine_id: &str,
         query: &str,list: &str, user_id:&str) -> Result<Vec<DishDBEntry>, String>{
+            let list = match list {
+                "blacklist" => "blacklistedDishes",
+                "whitelist" => "whitelistedDishes",
+                _ => return Err("Požadovaná položka neexistuje".to_string()),
+            };
             let reslut_stream:Result<mongodb::Cursor<Document>, mongodb::error::Error> = self
             .get_cantines_collection()
             .await
@@ -496,6 +535,14 @@ impl DbClient {
 
     }
     pub async fn query_settings(&self, id: &str, query: &str,list_to_query: &str) -> Result<Vec<DishDBEntry>, String> { 
+        let list_to_query = match list_to_query {
+            "blacklist" => "blacklistedDishes",
+            "whitelist" => "whitelistedDishes",
+            _ => {
+                return Err("Požadovaná položka neexistuje".to_string());
+            }
+    
+        };
         let results_stream = self.get_users_collection().await.aggregate([
             doc! {
                 "$match": doc! {

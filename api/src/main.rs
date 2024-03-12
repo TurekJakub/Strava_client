@@ -17,7 +17,7 @@ use crate::crawler::Crawler;
 use db_client::DbClient;
 use std::sync::Mutex;
 use strava_client::data_struct::{
-    AuthorizedDBHistoryQueryUrlString, Config, DBHistoryQueryUrlString, DishDBEntry, OrderDishRequestBody, OrdersCancelingSettings, SetSettingsUrlString, SettingsDBEntry, SettingsQueryUrlString, User, UserData
+    AuthorizedDBHistoryQueryUrlString, Config, DBHistoryQueryUrlString, DishDBEntry, OrderDishRequestBody, OrdersCancelingSettings, SetSettingsUrlString, SettingsDBEntry, SettingsData, SettingsQueryUrlString, User, UserData
 };
 use strava_client::strava_client::StravaClient;
 use tokio_cron_scheduler::{Job, JobScheduler};
@@ -320,68 +320,36 @@ async fn set_user_settings(
     state: Data<Mutex<AppState>>,
     query: Query<SetSettingsUrlString> 
 ) -> impl Responder {
-    let item = serde_json::from_str::<DishDBEntry>(&req_body);
+    let item = serde_json::from_str::<SettingsData>(&req_body);
     let query_string = query.into_inner();
-    match item {
+   match item {
         Ok(item) => {
-            let state = state.lock().unwrap();
-            match state.db_client.get_user(&session.get::<String>("id").unwrap().unwrap()).await {
-                Ok(Some(_)) => {
-                    match state.db_client.update_user_settings(&session
-                        .get::<String>("id").unwrap().unwrap(), &query_string.list, &query_string.action, item).await {
-                Ok(_) => succes("message", r#""new settings was succesfully saved""#),
-                Err(_) => {
-                    server_error("server error occurred while saving user data, try it again later")
+            match state
+                .lock()
+                .unwrap()
+                .db_client
+                .update_user_settings(
+                    session.get::<String>("id").unwrap().unwrap().as_str(),
+                    &query_string.list,
+                    &query_string.action,
+                    item
+                )
+                .await
+            {
+                Ok(_) => {
+                    return succes("message", r#""settings was succesfully saved""#);
+                }
+                Err(e) => {
+                    return server_error(&e);
                 }
             }
-                },
-                Ok(None) => {
-                    let mut blacklist = Vec::new();
-                    let mut whitelist = Vec::new();
-                    let mut allergens = Vec::new();
-                    match query_string.list.as_str() {
-                       "balcklist" => {
-                           blacklist.push(item);
-                       }
-                          "whitelist" => {
-                            whitelist.push(item);
-                          }
-                       "allergens" => {
-                            allergens.push(item);
-                       }
-                            _ => {
-                                return HttpResponse::BadRequest()
-                                    .body(format!(r#"{{"message":"invalid request body"}}"#));
-                            }
-                    }
-
-                   let user = UserData {
-                        id: session.get::<String>("id").unwrap().unwrap().clone(),
-                        settings: OrdersCancelingSettings {
-                            blacklisted_dishes: blacklist,
-                            whitelisted_dishes: whitelist,
-                            blacklisted_allergens: Vec::new(),
-                            strategy: "cancle".to_string(),
-                        },
-                        settings_update_time : std::time::SystemTime::now() 
-                    };
-                   match state.db_client.create_user(user).await {
-                Ok(_) => succes("message", r#""new settings was succesfully saved""#),
-                Err(_) => {
-                    return server_error("server error occurred while saving user data, try it again later")
-                   }
-                }},
-                Err(_) => {
-                    return server_error("server error occurred while saving user data, try it again later")
-                }
-            }
-                       
         }
         Err(_) => {
             return HttpResponse::BadRequest()
                 .body(format!(r#"{{"message":"invalid request body"}}"#));
         }
     }
+    
 }
 async fn order_dish(
     req_body: String,

@@ -218,3 +218,9 @@ pub struct SetSettingsUrlString {
     pub action: String,
     pub list: String,
 }
+#[derive(Deserialize, Serialize)]
+pub enum SettingsData {
+    Dish(DishDBEntry),
+    Allergen(String),
+    Strategy(String),
+}

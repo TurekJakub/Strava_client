@@ -1,19 +1,23 @@
 use bson::oid::ObjectId;
-use bson::{Document, Regex};
+use bson::{Bson, Document, Regex};
 use futures_util::stream::StreamExt;
 
+use lazy_static::lazy_static;
 use mongodb::options::{AuthMechanism, Tls, TlsOptions};
 use mongodb::options::{Credential, UpdateOptions};
 use mongodb::{bson::doc, options::ClientOptions, Client, Collection};
 
 use crate::utilities::input_to_regex_string;
-use std::env;
+use std::collections::HashSet;
+use std::{env, vec};
 use std::path::PathBuf;
 use std::time::SystemTime;
 use strava_client::data_struct::{
-    CantineDBEntry, Query, DishDBEntry, OrdersCancelingSettings, SettingsDBEntry,
-    UserDBEntry, UserData,
+    CantineDBEntry, DishDBEntry, OrdersCancelingSettings, Query, SettingsDBEntry, SettingsData, UserDBEntry, UserData
 };
+lazy_static!{
+static ref ALLERGENS: HashSet<String> = HashSet::from_iter(vec!["01".to_owned(), "02".to_owned(),"03".to_owned(),"04".to_owned(),"05".to_owned(),"06".to_owned(),"07".to_owned(),"08".to_owned(),"09".to_owned(),"10".to_owned(),"11".to_owned(),"12".to_owned(),"13".to_owned(),"14".to_owned()]);
+}
 pub struct DbClient {
     client: mongodb::Client,
 }
@@ -43,7 +47,7 @@ impl DbClient {
             None => Ok(None),
         }
     }
-    pub async fn get_user(&self, id: &str) -> Result<Option<UserData>, String> {
+     async fn get_user(&self, id: &str) -> Result<Option<UserData>, String> {
         let collection = self.get_users_collection().await;
         let mut user_res = match collection
             .aggregate(
@@ -146,10 +150,8 @@ impl DbClient {
             None => Ok(None),
         }
     }
-    /*
-
-    */
-    pub async fn create_user(&self, user: UserData) -> Result<(), String> {
+    
+     async fn create_user(&self, user: UserData) -> Result<(), String> {
         let collection = self.get_users_collection().await;
         let user = UserDBEntry {
             id: user.id,
@@ -188,63 +190,116 @@ impl DbClient {
              Err(e) => Err(e.to_string())
             }
     }
-    pub async fn update_user_settings(&self, user_id:&str, list: &str, action: &str, item: DishDBEntry) -> Result<(), String> {
-        let list = match list {
-            "blacklist" => "blacklistedDishes",
-            "whitelist" => "whitelistedDishes",
-            _ => return Err("Požadovaná položka neexistuje".to_string())};
-        let id = match self.get_dish_id(&item.name, &item.allergens).await {
-            Ok(Some(id)) => id,
-            Ok(None) => { match self.insert_dish(&item).await {
-                Ok(Some(id)) => id,
-                Ok(None) => return Err("Chyba při zápisu do databáze".to_string()),
-                Err(_) => return Err("Chyba při zápisu do databáze".to_string()),
-            }},
-            Err(_) => return Err("Chyba při zápisu do databáze".to_string()),
-        };
-        let action_doc =  match action {
-            "add" => doc! {
-                "$setUnion": [
-                    format!("$settings.{}",list),
-                     vec![id]
-                ]
-            },
-            
-            "remove" => doc! {
-                "$setDifference": [
-                    format!("$settings.{}",list),
-                     vec![id]
-                ]
-            },
-            _ => return Err("Požadovaná neznámá akce".to_string()),
-        };
-            
-        match self.get_users_collection().await.aggregate([
-            doc! {
-                "$match": doc! {
-                    "id": user_id
+    pub async fn update_user_settings(&self, user_id:&str, list: &str, action: &str, item:SettingsData) -> Result<(), String> {
+        match self.get_user(user_id).await? {
+            Some(_) => {
+                let list = match list {
+                    "blacklist"  => "blacklistedDishes",
+                    "whitelist" => "whitelistedDishes",
+                     "allergens" => "blacklistedAllergens",
+                    _ => return Err("Požadovaná položka neexistuje".to_string())};
+                let action_doc = match item {
+                    SettingsData::Dish(item) => {
+                        let id = match self.get_dish_id(&item.name, &item.allergens).await {
+                            Ok(Some(id)) => id,
+                            Ok(None) => { match self.insert_dish(&item).await {
+                                Ok(Some(id)) => id,
+                                Ok(None) => return Err("Chyba při zápisu do databáze".to_string()),
+                                Err(_) => return Err("Chyba při zápisu do databáze".to_string()),
+                            }},
+                            Err(_) => return Err("Chyba při zápisu do databáze".to_string()),
+                        };
+                        create_list_update_doc(action, list, id)?
+                       
+                    } 
+                    SettingsData::Allergen(allergen) => {
+                       if !ALLERGENS.contains(&allergen) {
+                           return Err("Neznámý alergen".to_string());
+                       }
+                        create_list_update_doc(action, list, allergen)?
+                    }
+                    SettingsData::Strategy(strategy) => {
+                        match strategy.as_str() {
+                            "cancel" | "replace" | "cancelAll"|"disabled" => {
+                                doc! {
+                                    "strategy": strategy
+                                }
+                            },
+                            _ => return Err("Neznámá strategie".to_string())
+                        }
+                    }
+                };         
+                match self.get_users_collection().await.aggregate([
+                    doc! {
+                        "$match": doc! {
+                            "id": user_id
+                        }
+                    },
+                    doc! {
+                        "$set": doc! {
+                            "settings": action_doc
+                        }
+                    },
+                    doc! {
+                        "$merge": doc! {
+                            "into": "users",
+                            "on": "_id",
+                            "whenMatched": "replace",
+                            "whenNotMatched": "insert"
+                        }
+                    }
+                ],None).await{
+                    Ok(_) => Ok(()),
+                    Err(_) => Err("Chyba při zápisu do databáze".to_string())
                 }
-            },
-            doc! {
-                "$project": doc! {
-                    "_id": "$_id",
-                    "id": "$id",
-                    "list": action_doc
-                }
-            },
-            doc! {
-                "$merge": doc! {
-                    "into": "users",
-                    "on": "_id",
-                    "whenMatched": "replace",
-                    "whenNotMatched": "insert"
-                }
+                
             }
-        ],None).await{
-            Ok(_) => Ok(()),
-            Err(_) => Err("Chyba při zápisu do databáze".to_string())
+            None => {
+                let mut balacklisted_dishes = Vec::new();
+                let mut whitelisted_dishes = Vec::new();
+                let mut blacklisted_allergens = Vec::new();
+                let mut strategy = "disabled".to_string();
+                 match item {
+                    SettingsData::Dish(dish) => {                        
+                        match list {
+                            "blacklist" => balacklisted_dishes.push(dish),
+                            "whitelist" => whitelisted_dishes.push(dish),
+                            _ => return Err("Požadovaná položka neexistuje".to_string())
+                        }
+                        
+                    },
+                    SettingsData::Allergen(allergen) => {
+                        if !ALLERGENS.contains(&allergen) {
+                            return Err("Neznámý alergen".to_string());
+                        }
+                        blacklisted_allergens.push(allergen);
+                    },
+                    SettingsData::Strategy(item) => {
+                        match strategy.as_str() {
+                            "cancel" | "replace" | "cancelAll"|"disabled" => {
+                                strategy = item;
+                            },
+                            _ => return Err("Neznámá strategie".to_string())
+                        }
+                    }
+                }
+                self.create_user(UserData {
+                    id: user_id.to_string(),
+                    settings: OrdersCancelingSettings {
+                        whitelisted_dishes: whitelisted_dishes,
+                        blacklisted_dishes: balacklisted_dishes,
+                        strategy: strategy,
+                        blacklisted_allergens: blacklisted_allergens,
+                    },
+                    settings_update_time: SystemTime::now(),
+                }).await?;
+              Ok(())
+            }
+            
         }
+        
     }
+
     pub async fn get_cantine(
         &self,
         cantine_id: &String,
@@ -643,5 +698,25 @@ async fn parse_result_stream_to_results<T: serde::de::DeserializeOwned>(stream: 
             }
         }
         Err(e) => Err(e.to_string()),
+    }
+
+}
+fn create_list_update_doc<T: Into<Bson>>(action: &str, list:&str, item:T) -> Result<Document,String> {
+    match action {
+        "add" => Ok(doc! {
+            list: doc! {
+                "$setUnion": [
+                    format!("$settings.{}", list),  vec![item]
+                ]
+            }
+        }),
+        "remove" => Ok(doc! {
+            list: doc! {
+                "$setDiffernce": [
+                    format!("$settings.{}", list),  vec![item]
+                ]
+            }
+        }),
+        _ => Err("Neznámá akce".to_string())
     }
 }

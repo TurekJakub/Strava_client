@@ -64,6 +64,11 @@ type Settings = {
 type QueryResponse<T> = {
    result: T[];
 }
+type strategy = {
+	id: string;
+	name: string;
+	value: string;
+}
 declare module 'TauriComunicationLayer' {
 	export function login(
 		username: string,

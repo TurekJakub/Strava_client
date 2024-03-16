@@ -18,6 +18,7 @@ const sendRequest = async <S, F, T, R>(
 		request.body = JSON.stringify(body);
 	}
 	let res = await fetch(url, request);
+	console.log(res);
 	let data = await res.json();
 	if (res.status === 401) {
 		return { _t: 'unauthorized' };
@@ -93,11 +94,12 @@ const logout = async (): Promise<void> => {
 };
 const queryCantineHistory = async (
 	cantineId: string,
-	query: string
+	query: string,
+	list: string
 ): Promise<Result<Dish[], string>> => {
 	let url = `/cantine_history?cantine_id=${encodeURIComponent(
 		cantineId
-	)}&query=${encodeURIComponent(query)}`;
+	)}&query=${encodeURIComponent(query)}&list=${encodeURIComponent(list)}`;
 	return await sendRequest<QueryResponse<Dish>, ErrorResponse, Dish[], string>(
 		url,
 		'GET',
@@ -129,11 +131,11 @@ const fetchSettings = async (): Promise<Result<Settings, string>> => {
 		'settings'
 	);
 };
-const updateSettings = async (settings: Settings): Promise<Result<string, string>> => {
+const updateSettings = async (settingsItem: string|Dish, action: string, list:string): Promise<Result<string, string>> => {
 	return await sendRequest<SuccessResponse, ErrorResponse, string, string>(
-		'/update_settings',
+		`/user_settings?action=${encodeURIComponent(action)}&list=${list}`,
 		'POST',
-		settings,
+		settingsItem,
 		'message',
 		'message'
 	);
@@ -146,5 +148,6 @@ export {
 	logout,
 	queryCantineHistory,
 	querySettings,
-	fetchSettings
+	fetchSettings,
+	updateSettings
 };

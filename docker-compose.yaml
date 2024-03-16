@@ -24,6 +24,10 @@ services:
     restart: unless-stopped
     environment:
       - HOST=http://website.local:80
+      - CERT_PATH=
+      - CONNECTION_STRING=
+      - HOST_ADDRESS=
+      - PORT=
 volumes:
   caddy_data:
 

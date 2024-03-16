@@ -16,7 +16,6 @@
 		(document.getElementById('login_button') as HTMLElement).blur();
 		loading = true;
 		let res = await login(userLogin, value, cantineId, stayLogged);
-		console.log(res);
 		switch (res._t) {
 			case 'success':
 				$username = res.data.username;
@@ -25,7 +24,12 @@
 				goto('/objednavky');
 				break;
 			case 'failure':
+				loading = false;
 				message = res.error;
+				break;
+			case 'unauthorized':
+				loading = false;
+				message = 'Nesprávné přihlašovací údaje';
 				break;
 		}
 	}

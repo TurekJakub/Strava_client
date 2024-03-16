@@ -1,7 +1,16 @@
-use std::collections::{HashMap, HashSet};
 use crate::data_struct::{DishDBEntry, DishInfo, OrdersCancelingSettings, User};
 use crate::request_builder::RequestBuilder;
-
+use std::collections::{HashMap, HashSet};
+macro_rules! skip_none {
+    ($res:expr) => {
+        match $res {
+            Some(val) => val,
+            None => {
+                continue;
+            }
+        }
+    };
+}
 pub struct AutomaticStravaClient {
     request_builder: RequestBuilder,
     settings: OrdersCancelingSettings,
@@ -33,12 +42,24 @@ impl AutomaticStravaClient {
             .do_get_user_menu_request()
             .await
             .unwrap();
-
+        let blacklisted_allergens: HashSet<String> =
+            HashSet::from_iter(self.settings.blacklisted_allergens.clone());
         match self.settings.strategy.as_str() {
             "cancel" => {
                 for (_date, dishes) in menu {
                     for (name, info) in dishes {
-                        if info.order_state && self.settings.blacklisted_dishes.contains(&DishDBEntry {name: name, allergens:info.allergens}) {
+                        if info.order_state
+                            && ((self.settings.blacklisted_dishes.contains(&DishDBEntry {
+                                name: skip_none!(name.split('-').collect::<Vec<&str>>().get(1))
+                                    .trim()
+                                    .to_owned(),
+                                allergens: info.allergens.clone(),
+                            })) || (HashSet::from_iter(info.allergens)
+                                .intersection(&blacklisted_allergens)
+                                .count()
+                                != 0))
+                        {
+                            println!("Canceling {}", name);
                             let _ = self
                                 .request_builder
                                 .do_order_dish_request(&info.id, 0)
@@ -50,16 +71,24 @@ impl AutomaticStravaClient {
             }
 
             "replace" => {
-                let blacklisted_allergens: HashSet<String> =
-                    HashSet::from_iter(self.settings.blacklisted_allergens.clone());
                 let blacklisted_dishes: HashSet<DishDBEntry> =
                     HashSet::from_iter(self.settings.blacklisted_dishes.clone());
                 let white_listed_dishes: HashSet<DishDBEntry> =
-                    HashSet::from_iter(self.settings.whitelisted_dishes.clone()); 
+                    HashSet::from_iter(self.settings.whitelisted_dishes.clone());
                 for (_date, dishes) in menu {
                     let mut something_to_replace = false;
                     for (name, info) in &dishes {
-                        if info.order_state && self.settings.blacklisted_dishes.contains(& DishDBEntry {name: name.clone(), allergens:info.allergens.clone()}) {
+                        if info.order_state
+                            && ((self.settings.blacklisted_dishes.contains(&DishDBEntry {
+                                name: skip_none!(name.split('-').collect::<Vec<&str>>().get(1))
+                                    .trim()
+                                    .to_owned(),
+                                allergens: info.allergens.clone(),
+                            })) || (HashSet::from_iter(info.allergens.clone())
+                                .intersection(&blacklisted_allergens)
+                                .count()
+                                != 0))
+                        {
                             let _ = self
                                 .request_builder
                                 .do_order_dish_request(&info.id, 0)
@@ -69,18 +98,20 @@ impl AutomaticStravaClient {
                         }
                     }
                     if something_to_replace {
-                        
                         let map: HashMap<String, DishInfo> = HashMap::from_iter(
                             dishes
-                            .iter()
-                            .map(|(name, info)| (name.clone(), info.clone()))
-                            .collect::<Vec<(String, DishInfo)>>(),
+                                .iter()
+                                .map(|(name, info)| (name.clone(), info.clone()))
+                                .collect::<Vec<(String, DishInfo)>>(),
                         );
-                        
-                        let r = HashSet::from_iter(dishes.iter().map(|(name, info)| DishDBEntry {name: name.clone(), allergens:info.allergens.clone()}))
-                            .difference(&blacklisted_dishes)
-                            .cloned()
-                            .collect::<Vec<DishDBEntry>>();
+
+                        let r = HashSet::from_iter(dishes.iter().map(|(name, info)| DishDBEntry {
+                            name: name.clone(),
+                            allergens: info.allergens.clone(),
+                        }))
+                        .difference(&blacklisted_dishes)
+                        .cloned()
+                        .collect::<Vec<DishDBEntry>>();
                         let mut res = Vec::new();
                         for dish in r {
                             if HashSet::from_iter(dish.allergens.clone())
@@ -117,7 +148,21 @@ impl AutomaticStravaClient {
                     }
                 }
             }
-
+            "cancelAll" => {
+                for (_date, dishes) in menu {
+                    for (_name, info) in dishes {
+                        if info.order_state {
+                            let _ = self
+                                .request_builder
+                                .do_order_dish_request(&info.id, 0)
+                                .await;
+                        }
+                    }
+                }
+            }
+            "disabled" => {
+                return Ok(());
+            }
             _ => {
                 return Err("Unknown strategy".to_string());
             }

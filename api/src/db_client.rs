@@ -59,12 +59,17 @@ impl DbClient {
                     },
                     doc! {
                         "$unwind": doc! {
-                            "path": "$settings.blacklistedDishes"
+                            "path": "$settings.blacklistedDishes",
+                            "preserveNullAndEmptyArrays": true
+
+                            
                         }
                     },
                     doc! {
                         "$unwind": doc! {
-                            "path": "$settings.whitelistedDishes"
+                            "path": "$settings.whitelistedDishes",
+                            "preserveNullAndEmptyArrays": true
+
                         }
                     },
                     doc! {
@@ -108,10 +113,10 @@ impl DbClient {
                                 "$first": "$settings.strategy"
                             },
                             "blacklistedDishes": doc! {
-                                "$push": "$blacklistedDish"
+                                "$addToSet": "$blacklistedDish"
                             },
                             "whitelistedDishes": doc! {
-                                "$push": "$whitelistedDish"
+                                "$addToSet": "$whitelistedDish"
                             },
                             "id": doc! {
                                 "$first": "$id"
@@ -168,7 +173,7 @@ impl DbClient {
             Err(e) => Err(e.to_string()),
         }
     }
-    async fn update_user(&self, user: UserData) -> Result<(), String> {
+    pub async fn update_user(&self, user: UserData) -> Result<(), String> {
         let database = self.client.database("strava");
         let collection: Collection<UserDBEntry> = database.collection("users");
         match collection
@@ -197,6 +202,7 @@ impl DbClient {
                     "blacklist"  => "blacklistedDishes",
                     "whitelist" => "whitelistedDishes",
                      "allergens" => "blacklistedAllergens",
+                     "strategy" => "strategy",
                     _ => return Err("Požadovaná položka neexistuje".to_string())};
                 let action_doc = match item {
                     SettingsData::Dish(item) => {
@@ -250,7 +256,7 @@ impl DbClient {
                     }
                 ],None).await{
                     Ok(_) => Ok(()),
-                    Err(_) => Err("Chyba při zápisu do databáze".to_string())
+                    Err(e) => {println!("{}",e); Err("Chyba při zápisu do databáze".to_string())}
                 }
                 
             }
@@ -531,7 +537,9 @@ impl DbClient {
                     },
                     doc! {
                         "$unwind": doc! {
-                            "path": "$user"
+                            "path": "$user",
+                            "preserveNullAndEmptyArrays": true
+
                         }
                     },
                     doc! {
@@ -550,7 +558,7 @@ impl DbClient {
                     doc! {
                         "$unwind": doc! {
                             "path": "$cantineHistory",
-                            "preserveNullAndEmptyArrays": false
+                            "preserveNullAndEmptyArrays": true
                         }
                     },
                     doc! {
@@ -564,7 +572,7 @@ impl DbClient {
                     doc! {
                         "$unwind": doc! {
                             "path": "$dish",
-                            "preserveNullAndEmptyArrays": false
+                            "preserveNullAndEmptyArrays": true
                         }
                     },
                     doc! {
@@ -607,7 +615,7 @@ impl DbClient {
             doc! {
                 "$unwind": doc! {
                     "path": format!("$settings.{}", list_to_query),
-                    "preserveNullAndEmptyArrays": false
+                    "preserveNullAndEmptyArrays": true
                 }
             },
             doc! {
@@ -622,7 +630,7 @@ impl DbClient {
             doc! {
                 "$unwind": doc! {
                     "path": format!("$settings.{}", list_to_query),
-                    "preserveNullAndEmptyArrays": false
+                    "preserveNullAndEmptyArrays": true
                 }
             },
             doc! {
@@ -712,7 +720,7 @@ fn create_list_update_doc<T: Into<Bson>>(action: &str, list:&str, item:T) -> Res
         }),
         "remove" => Ok(doc! {
             list: doc! {
-                "$setDiffernce": [
+                "$setDifference": [
                     format!("$settings.{}", list),  vec![item]
                 ]
             }

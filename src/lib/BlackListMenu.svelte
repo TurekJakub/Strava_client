@@ -4,7 +4,7 @@
 
 	export let sourceList: Dish[] = [];
 	export let targetList: Dish[] = [];
-	let draggedItem: Dish;
+	export let draggedItem: Dish;
 
 	const dispatch = createEventDispatcher();
 	
@@ -52,7 +52,11 @@
 		bind:list={sourceList}
 		on:drop={(e) => {
 			onDropToSourceList();
-			dispatch('drop');
+			dispatch('dropedToSource');
+		}}
+		on:itemClicked={(e) => {
+			onDropToTargetList();
+			dispatch('targetItemClicked');
 		}}
 		on:query={(e) => {
 			dispatch('querySource', e); ;
@@ -63,7 +67,11 @@
 		bind:list={targetList}
 		on:drop={(e) => {
 			onDropToTargetList();
-			dispatch('drop');
+			dispatch('dropedToTarget');
+		}}
+		on:itemClicked={(e) => {
+			onDropToSourceList();
+			dispatch('sourceItemClicked');
 		}}
 		on:query={(e) => {
 			dispatch('queryTarget', e);

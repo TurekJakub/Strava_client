@@ -136,8 +136,12 @@ fn parse_cantine_menu(cantine_menu: serde_json::Value) -> Vec<DishDBEntry> {
                     .to_string(),
                 );
             }
+            let name = trim_whitespace(&skip_none!(skip_none!(dish.get("nazev")).as_str()).to_string());
+            if name == "" {
+                continue;
+            }
             menu.push(DishDBEntry {
-                name: skip_none!(skip_none!(dish.get("nazev")).as_str()).to_string(),
+                name: name,
                 allergens: allergens,
             })
         }

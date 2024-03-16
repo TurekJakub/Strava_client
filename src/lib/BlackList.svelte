@@ -11,8 +11,14 @@
 			name: source.length > 0 ? source[0].innerText : '',
 			allergens: source.length > 1 ? source[1].innerText.split(',')[0] === ""? [] :source[1].innerText.split(',') : []
 		};
-
-		console.log(draggedItem);
+	}
+	function onClick(e: MouseEvent) {
+		let source = (e.currentTarget as HTMLElement).getElementsByTagName('p');
+		draggedItem = {
+			name: source.length > 0 ? source[0].innerText : '',
+			allergens: source.length > 1 ? source[1].innerText.split(',')[0] === ""? [] :source[1].innerText.split(',') : []
+		};
+		dispatch('itemClicked');
 	}
 	function handeleQuery(Event: Event) {
 		dispatch('query', (Event.target as HTMLInputElement).value);
@@ -31,7 +37,7 @@
 >
 	<div class="sticky top-0 bg-slate-700 py-2">
 		<div
-			class="border-separate border-2 bg-slate-800 border-white flex flex-row w-full rounded-full mx-auto p-2 h-10 text-center sticky top-0"
+			class="border-separate border-2 bg-slate-800 border-white flex flex-row w-full rounded-full mx-auto p-2 h-10 text-center sticky top-0 z-0"
 		>
 			<input
 				class="dark:dark-mode-autofill p-1 bg-slate-800 text-white border-none w-full focus-within:border-none focus-within:ring-0 focus-within:outline-none"
@@ -58,16 +64,17 @@
 	</div>
 
 	{#each list as item}
-		<div
-			class="flex flex-col border-2 bg-slate-800 border-white rounded-md p-3 mt-3 opacity-100"
+		<button
+			class="flex flex-col justify-start border-2 bg-slate-800 border-white rounded-md p-3 mt-3 opacity-100 w-full"
 			draggable="true"
 			on:dragstart={onDragStart}
+			on:click|preventDefault={onClick}
 			role="cell"
 			tabindex="-1"
 		>
-			<p class="text-white">{item.name} <span class="text-gray-400"></span></p>
+			<p class="text-white text-start">{item.name}</p>
 			<p class="text-gray-400">{item.allergens}</p>
-		</div>
+		</button>
 	{/each}
 	<div class="sticky bottom-0 h-3 bg-slate-700 rounded-none w-full"></div>
 </div>

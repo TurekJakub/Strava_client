@@ -17,7 +17,7 @@ use crate::crawler::Crawler;
 use db_client::DbClient;
 use std::sync::Mutex;
 use strava_client::data_struct::{
-    AuthorizedDBHistoryQueryUrlString, Config, DBHistoryQueryUrlString, DishDBEntry, OrderDishRequestBody, OrdersCancelingSettings, SetSettingsUrlString, SettingsDBEntry, SettingsData, SettingsQueryUrlString, User, UserData
+    AuthorizedDBHistoryQueryUrlString, Config, DBHistoryQueryUrlString, DishDBEntry, OrderDishRequestBody, SetSettingsUrlString, SettingsData, SettingsQueryUrlString, User
 };
 use strava_client::strava_client::StravaClient;
 use tokio_cron_scheduler::{Job, JobScheduler};
@@ -169,7 +169,7 @@ async fn main() -> Result<(), std::io::Error> {
             )
     })
     .bind((
-        env::var("IP_ADDRESS").unwrap(),
+        env::var("HOST_ADDRESS").unwrap(),
         env::var("PORT").unwrap().parse().unwrap(),
     ))?
     .run()
@@ -253,16 +253,17 @@ async fn login(req_body: String, session: Session, state: Data<Mutex<AppState>>)
                     session.insert("username", user.username.clone()).unwrap();
 
                     let mut state = state.lock().unwrap();
-
+                    println!("{:?}",id);
                     state.strava_clients.insert(session_id.clone(), client);
                     match state.db_client.get_settings(&id).await {
                         Ok(val) => match val {
                             Some(settings) => {
+                                println!("{:?}", settings);
                                 let automatic_client = strava_client::automatic_client::AutomaticStravaClient::new_with_existing_request_builder(
                                     settings,                              
                                     state.strava_clients.get(&session_id).unwrap().request_builder.clone(),
                                 );
-                                let _ = automatic_client.cancel_orders().await;
+                                let _ = automatic_client.cancel_orders().await.unwrap();   
                             }
                             None => ()
                         }
@@ -320,8 +321,26 @@ async fn set_user_settings(
     state: Data<Mutex<AppState>>,
     query: Query<SetSettingsUrlString> 
 ) -> impl Responder {
-    let item = serde_json::from_str::<SettingsData>(&req_body);
     let query_string = query.into_inner();
+    let item = match query_string.list.as_str() {
+        "blacklist" | "whitelist" => { match serde_json::from_str::<DishDBEntry>(&req_body) {
+            Ok(val) => Ok(SettingsData::Dish(val)),
+            Err(_) => Err(())
+        }},
+        "strategy" =>  { match serde_json::from_str::<String>(&req_body) {
+            Ok(val) => Ok(SettingsData::Strategy(val)),
+            Err(_) => Err(())
+        }}, 
+        "allergens" =>  { match serde_json::from_str::<String>(&req_body) {
+            Ok(val) => Ok(SettingsData::Allergen(val)),
+            Err(_) => Err(())
+        }},
+        _ => {
+            return HttpResponse::BadRequest()
+                .body(format!(r#"{{"message":"Požadovaná položka neexistuje"}}"#));
+        }
+        
+    };
    match item {
         Ok(item) => {
             match state
@@ -491,7 +510,8 @@ async fn authorized_cantine_history_query(
         Ok(data) => {
             return succes("result", serde_json::to_string(&data).unwrap().as_str());
         }
-        Err(_) => {
+        Err(e) => {
+            println!("{:?}", e);
             return server_error("Došlo k chybě při načítaní dat z databáze");
         }
     }

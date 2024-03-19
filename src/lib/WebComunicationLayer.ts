@@ -13,7 +13,7 @@ const sendRequest = async <S, F, T, R>(
 			'Content-Type': 'application/json;charset=UTF-8'
 		}
 	};
-	let url: string = `http://localhost:8080${path}`;
+	let url: string = `http://strava.jumpingcrab.com/api${path}`;
 	if (method === 'POST') {
 		request.body = JSON.stringify(body);
 	}

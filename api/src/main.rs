@@ -31,7 +31,6 @@ struct AppState {
 }
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
-
     let sched = JobScheduler::new().await.expect("Failed to create scheduler");
     sched.add(
         Job::new_async("0 0 1 * * *", |_uuid,  _l| {
@@ -62,7 +61,7 @@ async fn main() -> Result<(), std::io::Error> {
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
                     .cookie_http_only(true)
                     .cookie_same_site(actix_web::cookie::SameSite::None)
-                    .cookie_secure(true)
+                    .cookie_secure(false)
                     .build(),
             )
             .wrap(

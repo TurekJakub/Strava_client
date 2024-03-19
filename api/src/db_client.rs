@@ -678,7 +678,7 @@ async fn connect() -> Result<mongodb::Client, mongodb::error::Error> {
             .build(),
     );
     let tls_options = TlsOptions::builder()
-        .cert_key_file_path(PathBuf::from(env::var("CERT_PATH").unwrap()))
+        .cert_key_file_path(PathBuf::from("/usr/api/certs/cert.pem"))
         .build();
     client_options.tls = Some(Tls::Enabled(tls_options));
     let client = Client::with_options(client_options)?;

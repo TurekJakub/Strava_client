@@ -2,35 +2,49 @@ services:
   api:
     image: api
     build: 
-      context: .
-      dockerfile: ./api.Dockerfile
+     context: .
+     dockerfile: ./api.Dockerfile
     command: run
     restart: unless-stopped
-    network_mode: host 
+    environment:
+      - HOST_ADDRESS=0.0.0.0
+      - PORT=80
+      - CONNECTION_STRING=mongodb+srv://cluster0.ufzbnsx.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`website.local`) && PathPrefix(`/api`)"
+      - "traefik.http.middlewares.api-stripprefix.stripprefix.prefixes=/api"
+      - "traefik.http.routers.api.middlewares=api-stripprefix"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.services.api.loadbalancer.server.port=80"
+    volumes:
+      - ./api/src/key.pem:/usr/api/certs/cert.pem
   frontend:
     image: frontend
     build: 
-      context: .
-      dockerfile: ./frontend.Dockerfile
+     context: .
+     dockerfile: ./frontend.Dockerfile
     restart: unless-stopped
-    network_mode: host
-  caddy:
-    image: caddy:latest    
-    network_mode: host
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-    restart: unless-stopped
-    environment:
-      - HOST=http://website.local:80
-      - CERT_PATH=
-      - CONNECTION_STRING=
-      - HOST_ADDRESS=
-      - PORT=
-volumes:
-  caddy_data:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.f.rule=Host(`website.local`)"
+      - "traefik.http.services.f.loadbalancer.server.port=80"
+      - "traefik.http.routers.f.entrypoints=web"
+  traefik:
+    image: "traefik:v2.0.0-rc3"
+    container_name: "traefik"
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
 
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
 
     
     

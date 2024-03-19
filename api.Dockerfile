@@ -12,7 +12,9 @@ WORKDIR /usr/src/api/api
 RUN cargo install --path .
 RUN cargo build --release
 
-FROM ubuntu:latest as production
+FROM ubuntu:24.04 as production
+
+RUN apt-get update && apt-get install ca-certificates -y && update-ca-certificates
 
 COPY --from=build /usr/src/api/api/target/release/api /bin/
 

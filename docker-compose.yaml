@@ -1,50 +1,69 @@
 services:
   api:
-    image: api
-    build: 
-     context: .
-     dockerfile: ./api.Dockerfile
+    image: api                          #
+    build:                              #  replace this with image: turekjakub/strava_client:api to use the image from dockerhub instead of building it from repo
+     context: .                         #
+     dockerfile: ./api.Dockerfile       #
     command: run
     restart: unless-stopped
     environment:
       - HOST_ADDRESS=0.0.0.0
-      - PORT=80
-      - CONNECTION_STRING=mongodb+srv://cluster0.ufzbnsx.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority
+      - PORT=80 
+      - CONNECTION_STRING=your_mongodb_connection_string_here
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`website.local`) && PathPrefix(`/api`)"
-      - "traefik.http.middlewares.api-stripprefix.stripprefix.prefixes=/api"
-      - "traefik.http.routers.api.middlewares=api-stripprefix"
+
+      - "traefik.http.routers.api.rule=Host(`your_hostname_here`) && PathPrefix(`/api`)"
       - "traefik.http.routers.api.entrypoints=web"
-      - "traefik.http.services.api.loadbalancer.server.port=80"
+      - "traefik.http.routers.api.middlewares=api-https-redirect"
+      - "traefik.http.middlewares.api-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.api-https-redirect.redirectscheme.permanent=true"
+
+      - "traefik.http.routers.api-https.rule=Host(`your_hostname_here`) && PathPrefix(`/api`)"
+      - "traefik.http.middlewares.api-stripprefix.stripprefix.prefixes=/api"
+      - "traefik.http.routers.api-https.middlewares=api-stripprefix"
+      - "traefik.http.routers.api-https.entrypoints=websecure"
+      - "traefik.http.routers.api-https.tls.certresolver=myresolver"
+      - "traefik.http.services.api-https.loadbalancer.server.port=80" # replace to use different port then is exposd in Dockerfile
+
     volumes:
-      - ./api/src/key.pem:/usr/api/certs/cert.pem
+      - path_to_your_mongodb_auth_cert_here:/usr/api/certs/cert.pem
   frontend:
-    image: frontend
-    build: 
-     context: .
-     dockerfile: ./frontend.Dockerfile
+    image: frontend                            #
+    build:                                     #   replace this with image: turekjakub/strava_client:frontend to use the image from dockerhub instead of building it from repo
+     context: .                                #
+     dockerfile: ./frontend.Dockerfile         #
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.f.rule=Host(`website.local`)"
-      - "traefik.http.services.f.loadbalancer.server.port=80"
-      - "traefik.http.routers.f.entrypoints=web"
+
+      - "traefik.http.routers.frontend.rule=Host(`your_hostname_here`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.frontend.middlewares=frontend-https-redirect"
+      - "traefik.http.middlewares.frontend-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.frontend-https-redirect.redirectscheme.permanent=true"
+
+      - "traefik.http.routers.frontend-https.rule=Host(`your_hostname_here`)"
+      - "traefik.http.services.frontend-https.loadbalancer.server.port=80" # replace to use different port then is exposd in Dockerfile
+      - "traefik.http.routers.frontend-https.entrypoints=websecure"
+      - "traefik.http.routers.frontend-https.tls.certresolver=myresolver"
   traefik:
     image: "traefik:v2.0.0-rc3"
     container_name: "traefik"
     command:
-      - "--log.level=DEBUG"
-      - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
-
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=your_email_here"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
-      - "8080:8080"
+      - "443:443"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./letsencrypt:/letsencrypt"
 
     
     

@@ -92,7 +92,7 @@ impl Serialize for User<'_> {
         s.serialize_field("jmeno", &self.username)?;
         s.serialize_field("cislo", &self.cantine)?;
         s.serialize_field("lang", &self.lang)?;
-        s.serialize_field("zustatPrihlasen", &self.stay_logged.to_string())?;
+        s.serialize_field("zustatPrihlasen", &self.stay_logged)?;
         s.end()
     }
 }
@@ -223,4 +223,33 @@ pub enum SettingsData {
     Dish(DishDBEntry),
     Allergen(String),
     Strategy(String),
+}
+#[derive(Deserialize, Serialize)]
+pub enum RequestError {
+    Error(Error),
+    Unauthorized(Unauthorized),
+}
+#[derive(Deserialize, Serialize)]
+pub struct Unauthorized {
+    pub _t : String,
+}
+#[derive(Deserialize, Serialize)]
+pub struct Error {
+   pub message: String,
+    pub _t : String,
+}
+impl Error {
+    pub fn new(message: String) -> Error {
+        Error {
+            message: message,
+            _t: "failure".to_string(),
+        }
+    }
+}
+impl Unauthorized {
+    pub fn new() -> Unauthorized {
+        Unauthorized {
+            _t: "unauthorized".to_string(),
+        }
+    }
 }

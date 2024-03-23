@@ -61,7 +61,7 @@ async fn main() -> Result<(), std::io::Error> {
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
                     .cookie_http_only(true)
                     .cookie_same_site(actix_web::cookie::SameSite::None)
-                    .cookie_secure(false)
+                    .cookie_secure(true)
                     .build(),
             )
             .wrap(
@@ -231,6 +231,7 @@ async fn get_user_menu(state: Data<Mutex<AppState>>, session: Session) -> impl R
     return succes("menu", serde_json::to_string(&menu).unwrap().as_str());
 }
 async fn login(req_body: String, session: Session, state: Data<Mutex<AppState>>) -> impl Responder {
+    println!("{:?}", req_body);
     match serde_json::from_str::<User<'_>>(&req_body) {
         Ok(user_data) => {
             let client = match StravaClient::new_with_settings(Config {
@@ -301,7 +302,7 @@ async fn get_user_settings(session: Session, state: Data<Mutex<AppState>>) -> im
     match settings {
         Ok(settings) => match settings {
             Some(settings) => {
-                println!("{:?}", settings);
+                println!("{:?}", serde_json::to_string(&settings));
                 return succes(
                     "settings",
                     serde_json::to_string(&settings).unwrap().as_str(),

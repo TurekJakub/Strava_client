@@ -16,3 +16,5 @@ userdata/turekj.toml
 /api/target
 /strava-client/target
 api/src/key.pem
+startup_script/target
+startup_script/logs

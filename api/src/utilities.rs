@@ -1,15 +1,4 @@
 #[macro_export]
-macro_rules! skip_fail {
-    ($res:expr) => {
-        match $res {
-            Ok(val) => val,
-            Err(e) => {
-                continue;
-            }
-        }
-    };
-}
-#[macro_export]
 macro_rules! skip_none {
     ($res:expr) => {
         match $res {
@@ -20,7 +9,6 @@ macro_rules! skip_none {
         }
     };
 }
-pub(crate) use skip_fail;
 pub(crate) use skip_none;
 pub fn input_to_regex_string(input: &str) -> String {
     let str = replace_multiple(

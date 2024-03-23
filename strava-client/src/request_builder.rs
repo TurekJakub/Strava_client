@@ -1,11 +1,18 @@
 use std::{collections::HashMap, time::SystemTime};
 
-use crate::data_struct::{Date, DishInfo, OrdersCancelingSettings, User, UserInfo};
+use crate::data_struct::{
+    Date, DishDBEntry, DishInfo, Error, OrdersCancelingSettings, RequestError, SettingsData,
+    Unauthorized, User, UserInfo,
+};
 use indexmap::IndexMap;
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use reqwest::{Client, Response};
 use scraper::Html;
+use serde::Deserialize;
 use serde_json::{Map, Value};
+use urlencoding::encode;
+
+static ENDPOINT: Lazy<String> = Lazy::new(|| "http://localhost:8080".to_string());
 #[derive(Clone)]
 pub struct RequestBuilder {
     client: Client,
@@ -73,15 +80,6 @@ impl RequestBuilder {
             Err(_) => return Err("Při komunikaci se serverem došlo k chybě".to_string()),
         }
     }
-    // do get request for given cantine menu page and return it
-    /*
-    pub fn get_cantine_menu(&self, cantinecode: &str) -> Html {
-        self.do_get(
-            ("https://www.strava.cz/Strava/Stravnik/Jidelnicky?zarizeni=".to_owned() + cantinecode)
-                .as_str(),
-        )
-    }
-    */
     // do get request for loqged users menu page and return it
     pub async fn do_get_user_menu_request(
         &self,
@@ -118,6 +116,13 @@ impl RequestBuilder {
         let res = self.client.get(url).send();
         Html::parse_document(res.await.unwrap().text().await.unwrap().as_str())
     }
+    pub async fn do_get_request(&self, url: &str) -> Result<Response, String> {
+        match self.client.get(url).send().await {
+            Ok(res) => Ok(res),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
     pub async fn do_order_dish_request(&self, dish_id: &String, amount: u8) -> Result<f64, String> {
         match self
             .do_post_template(
@@ -173,7 +178,15 @@ impl RequestBuilder {
         {
             Ok(res) => match res.status().as_u16() {
                 200 => Ok(()),
-                500..=600=>{ Err(serde_json::from_str::<Map<String, Value>>(&res.text().await.unwrap()).unwrap().get("message").unwrap().as_str().unwrap().to_string())},
+                500..=600 => Err(serde_json::from_str::<Map<String, Value>>(
+                    &res.text().await.unwrap(),
+                )
+                .unwrap()
+                .get("message")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string()),
                 _ => Err("Došlo k chybě serveru, zkuste to znovu později".to_string()),
             },
             Err(e) => return Err(e),
@@ -196,18 +209,193 @@ impl RequestBuilder {
         println!("{}", body);
         self.do_post(url, body).await
     }
-    pub async fn do_db_auth_request(&self, user: User<'_>) -> Result<Response, String> {
-        self.do_post("endpoint", serde_json::to_string(&user).unwrap())
-            .await // TODO add endpoint url
-    }
-    pub async fn get_last_settings_update(&self) -> Result<SystemTime, String> {
+    pub async fn do_db_auth_request(&self, user: &User<'_>) -> Result<UserInfo, String> {
         match self
-            .do_post("http://127.0.0.1:8080/update_time", "".to_string())
+            .do_post(
+                &format!("{}/login", *ENDPOINT),
+                serde_json::to_string(user).unwrap(),
+            )
             .await
         {
-            // TODO add endpoint url
+            Ok(res) => match res.status().as_u16() {
+                200 => {
+                    #[derive(Deserialize)]
+                    struct Response {
+                        #[serde(rename = "message")]
+                        _message: String,
+                        user: UserInfo,
+                    }
+                    let res = res.json::<Response>().await.unwrap();
+                    Ok(res.user)
+                }
+                401 => Err("Špatné uživatelské jméno nebo heslo".to_string()),
+                _ => Err(
+                    "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
+                        .to_string(),
+                ),
+            },
+            Err(_) => Err(
+                "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
+                    .to_string(),
+            ),
+        }
+    }
+    pub async fn do_db_logout_request(&self) -> Result<Response, String> {
+        self.do_post(&format!("{}/logout", *ENDPOINT), "".to_string())
+            .await
+    }
+    pub async fn query_cantine_history(
+        &self,
+        cantine_id: &str,
+        query: &str,
+        list_to_query: &str,
+    ) -> Result<Vec<DishDBEntry>, RequestError> {
+        match self
+            .do_get_request(&format!(
+                "{}/cantine_history?cantine_id={}&query={}&list={}",
+                *ENDPOINT,
+                encode(cantine_id),
+                encode(query),
+                encode(list_to_query)
+            ))
+            .await
+        {
+            Ok(res) => match res.status().as_u16() {
+                200 => Ok(res
+                    .json::<HashMap<String, Vec<DishDBEntry>>>()
+                    .await
+                    .unwrap()
+                    .get("result")
+                    .unwrap()
+                    .clone()),
+                _ => Err(RequestError::Error(Error::new(
+                    res.json::<HashMap<String, String>>()
+                        .await
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .to_string(),
+                ))),
+            },
+            Err(_) => Err(RequestError::Error(Error::new(
+                "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
+                    .to_string(),
+            ))),
+        }
+    }
+    pub async fn query_settings(
+        &self,
+        query: &str,
+        list_to_query: &str,
+    ) -> Result<DishDBEntry, RequestError> {
+        match self
+            .do_get_request(&format!(
+                "{}/settings_query?query={}&list={}",
+                *ENDPOINT,
+                encode(query),
+                encode(list_to_query)
+            ))
+            .await
+        {
+            Ok(res) => match res.status().as_u16() {
+                200 => Ok(res
+                    .json::<HashMap<String, DishDBEntry>>()
+                    .await
+                    .unwrap()
+                    .get("result")
+                    .unwrap()
+                    .clone()),
+                401 => Err(RequestError::Unauthorized(Unauthorized::new())),
+                _ => Err(RequestError::Error(Error::new(
+                    res.json::<HashMap<String, String>>()
+                        .await
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .to_string(),
+                ))),
+            },
+            Err(_) => Err(RequestError::Error(Error::new(
+                "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
+                    .to_string(),
+            ))),
+        }
+    }
+    pub async fn fetch_settings(&self) -> Result<OrdersCancelingSettings, RequestError> {
+        match self
+            .do_post(&format!("{}/user_settings", *ENDPOINT), "".to_string())
+            .await
+        {
+            Ok(res) => match res.status().as_u16() {
+                200 => Ok(res
+                    .json::<HashMap<String, OrdersCancelingSettings>>()
+                    .await
+                    .unwrap()
+                    .get("settings")
+                    .unwrap()
+                    .clone()),
+                401 => Err(RequestError::Unauthorized(Unauthorized::new())),
+                _ => Err(RequestError::Error(Error::new(
+                    res.json::<HashMap<String, String>>()
+                        .await
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .to_string(),
+                ))),
+            },
+            Err(_) => Err(RequestError::Error(Error::new(
+                "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
+                    .to_string(),
+            ))),
+        }
+    }
+    pub async fn update_settings(
+        &self,
+        settings_item: SettingsData,
+        action: &str,
+        list_to_update: &str,
+    ) -> Result<(), RequestError> {
+        match self
+            .do_post(
+                &format!(
+                    "{}/user_settings?action={}&list={}",
+                    *ENDPOINT,
+                    encode(action),
+                    encode(list_to_update)
+                ),
+                serde_json::to_string(&settings_item).unwrap(),
+            )
+            .await
+        {
+            Ok(res) => match res.status().as_u16() {
+                200 => Ok(()),
+                401 => Err(RequestError::Unauthorized(Unauthorized::new())),
+                _ => Err(RequestError::Error(Error::new(
+                    res.json::<HashMap<String, String>>()
+                        .await
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .to_string(),
+                ))),
+            },
+            Err(_) => Err(RequestError::Error(Error::new(
+                "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
+                    .to_string(),
+            ))),
+        }
+    }
+
+    pub async fn get_last_settings_update(&self) -> Result<SystemTime, String> {
+        match self
+            .do_post(
+                &format!("{}/settings_update_time", *ENDPOINT),
+                "".to_string(),
+            )
+            .await
+        {
             Ok(res) => {
-                // return Ok(serde_json::from_str(&res.text().await.unwrap()).unwrap());
                 return Ok(*res
                     .json::<HashMap<String, SystemTime>>()
                     .await
@@ -219,10 +407,16 @@ impl RequestBuilder {
         }
     }
     pub async fn get_settings(&self) -> Result<OrdersCancelingSettings, String> {
-        match self.do_post("endpoint", "".to_string()).await {
-            // TODO add endpoint url
+        match self
+            .do_get_request(&format!("{}/user_settings", *ENDPOINT))
+            .await
+        {
             Ok(res) => {
-                return Ok(res.json::<OrdersCancelingSettings>().await.unwrap());
+                let res = res
+                    .json::<HashMap<String, OrdersCancelingSettings>>()
+                    .await
+                    .unwrap();
+                Ok(res.get("settings").unwrap().clone())
             }
             Err(e) => Err(e),
         }

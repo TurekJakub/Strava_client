@@ -1,2 +1,4 @@
 #contains the information about required for properly working automatic orders cancelation
-users = ["turekj"]
+[[users]]
+jmeno = "turekj"
+cislo = "5763"

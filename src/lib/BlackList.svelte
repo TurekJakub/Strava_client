@@ -73,7 +73,7 @@
 			tabindex="-1"
 		>
 			<p class="text-white text-start">{item.name}</p>
-			<p class="text-gray-400">{item.allergens}</p>
+			<p class="text-gray-400 text-start ">{item.allergens}</p>
 		</button>
 	{/each}
 	<div class="sticky bottom-0 h-3 bg-slate-700 rounded-none w-full"></div>

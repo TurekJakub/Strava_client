@@ -13,7 +13,7 @@ const sendRequest = async <S, F, T, R>(
 			'Content-Type': 'application/json;charset=UTF-8'
 		}
 	};
-	let url: string = `http://strava.jumpingcrab.com/api${path}`;
+	let url: string = `http://127.0.0.1:8080${path}`;
 	if (method === 'POST') {
 		request.body = JSON.stringify(body);
 	}
@@ -110,7 +110,7 @@ const queryCantineHistory = async (
 };
 
 const querySettings = async (query: string, listToQuery: string): Promise<Result<Dish[], string>> => {
-	let url = `/settings_query?query=${encodeURIComponent(query)}&list=${listToQuery}`;
+	let url = `/settings_query?query=${encodeURIComponent(query)}&list=${encodeURIComponent(listToQuery)}`;
 	return await sendRequest<QueryResponse<string>, ErrorResponse, Dish[], string>(
 		url,
 		'GET',

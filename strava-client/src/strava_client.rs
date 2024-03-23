@@ -1,4 +1,4 @@
-use crate::data_struct::{Config, Date, DishInfo, User, UserInfo};
+use crate::data_struct::{Config, Date, DishDBEntry, DishInfo, OrdersCancelingSettings, RequestError, SettingsData, User, UserInfo};
 use crate::request_builder::RequestBuilder;
 use crate::strava_scraper::Scraper;
 use indexmap::IndexMap;
@@ -139,6 +139,33 @@ impl StravaClient {
         menu_buffer.clear();
         *self.account.get_mut().unwrap() = *self.account_temp.get().unwrap();
     }
+    pub async fn query_cantine_history(
+        &self,
+        cantine_id: &str,
+        query: &str,
+        list_to_query: &str,
+    ) -> Result<Vec<DishDBEntry>, RequestError> {
+        self.request_builder
+            .query_cantine_history(cantine_id, query, list_to_query)
+            .await
+    }
+    pub async fn query_settings(&self, query: &str, list_to_query: &str) -> Result<DishDBEntry, RequestError> {
+        self.request_builder.query_settings(query, list_to_query).await
+    }
+    pub async fn fetch_settings(&self) -> Result<OrdersCancelingSettings, RequestError> {
+        self.request_builder.fetch_settings().await
+    }
+    pub async fn update_settings(
+        &self,
+        settings_item: SettingsData,
+        action: &str,
+        list_to_update: &str,
+    ) -> Result<(), RequestError> {
+        self.request_builder
+            .update_settings(settings_item, action, list_to_update)
+            .await
+    }
+
     pub async fn save_orders(&mut self) -> Result<(), (String,f64)> {
        match self.request_builder.do_save_orders_request().await  {
            Ok(_) => {

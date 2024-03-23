@@ -38,7 +38,7 @@
 	let strategies: strategy[] = [
 		{ name: 'Odhlásit', value: 'cancel', id: 'strategy-cancel' },
 		{ name: 'Nahradit', value: 'replace', id: 'strategy-replace' },
-		{ name: 'Odhlasit všechny', value: 'cancelAll', id: 'strategy-cancel-all' },
+		{ name: 'Odhlásit všechny', value: 'cancelAll', id: 'strategy-cancel-all' },
 		{ name: 'Vypnuto', value: 'disabled', id: 'strategy-disabled' }
 	];
 
@@ -162,7 +162,7 @@
 <Navbar />
 <div class="w-full md:w-3/4 flex flex-col justify-center py-2 mx-auto">
 	<div class="rounded-md h-full bg-slate-800" style="width: calc(100%);">
-		<h2 id="strategy" class="ms-2 text-white text-lg">Atomatické odhlšování</h2>
+		<h2 id="strategy" class="ms-2 text-white text-lg">Automatické odhlšování</h2>
 		<div class="flex flex-col md:flex-row md:flex-wrap p-2">
 			{#each strategies as strat}
 				<div class="2xl:w-1/5 xl:w-1/4 w-1/2">

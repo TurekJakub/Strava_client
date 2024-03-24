@@ -1,4 +1,4 @@
-use crate::data_struct::{Config, Date, DishDBEntry, DishInfo, OrdersCancelingSettings, RequestError, SettingsData, User, UserInfo};
+use crate::data_struct::{Config, Date, DishDBEntry, DishInfo, OrdersCancelingSettings, RequestResult, Error, SaveRequestFailiure, SettingsData, Succes, User, UserInfo};
 use crate::request_builder::RequestBuilder;
 use crate::strava_scraper::Scraper;
 use indexmap::IndexMap;
@@ -144,15 +144,15 @@ impl StravaClient {
         cantine_id: &str,
         query: &str,
         list_to_query: &str,
-    ) -> Result<Vec<DishDBEntry>, RequestError> {
+    ) -> RequestResult<Vec<DishDBEntry>, String> {
         self.request_builder
             .query_cantine_history(cantine_id, query, list_to_query)
             .await
     }
-    pub async fn query_settings(&self, query: &str, list_to_query: &str) -> Result<DishDBEntry, RequestError> {
+    pub async fn query_settings(&self, query: &str, list_to_query: &str) -> RequestResult<Vec<DishDBEntry>, String> {
         self.request_builder.query_settings(query, list_to_query).await
     }
-    pub async fn fetch_settings(&self) -> Result<OrdersCancelingSettings, RequestError> {
+    pub async fn fetch_settings(&self) -> RequestResult<OrdersCancelingSettings, String> {
         self.request_builder.fetch_settings().await
     }
     pub async fn update_settings(
@@ -160,22 +160,22 @@ impl StravaClient {
         settings_item: SettingsData,
         action: &str,
         list_to_update: &str,
-    ) -> Result<(), RequestError> {
+    ) -> RequestResult<String, String> {
         self.request_builder
             .update_settings(settings_item, action, list_to_update)
             .await
     }
 
-    pub async fn save_orders(&mut self) -> Result<(), (String,f64)> {
+    pub async fn save_orders(&mut self) -> RequestResult<String, SaveRequestFailiure> {
        match self.request_builder.do_save_orders_request().await  {
            Ok(_) => {
              self.save_menu_changes();
-             Ok(())
+             RequestResult::Succes(Succes::new("success".to_string()))
            }
             Err(e) => {
                 self.menu_buffer.get_mut().unwrap().clear();
                *self.account_temp.get_mut().unwrap() = *self.account.get().unwrap();
-                Err((e,*self.account_temp.get().unwrap()))
+                RequestResult::Error(Error::new(SaveRequestFailiure{error:e, account:*self.account_temp.get().unwrap()}))
             }
        }     
     }

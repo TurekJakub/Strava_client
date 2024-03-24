@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Error from '$lib/Error.svelte';
-	import { login, getUserMenu } from '$lib/WebComunicationLayer';
+	import {getUserMenu } from '$lib/WebComunicationLayer';
+	import { login} from '$lib/TauriComunicationLayer';
 	import { goto } from '$app/navigation';
 	import { cantine, username, account} from '$lib/store';
 	let loading: boolean = false;
@@ -15,7 +16,7 @@
 	async function submit() {
 		(document.getElementById('login_button') as HTMLElement).blur();
 		loading = true;
-		let res = await login(userLogin, value, cantineId, stayLogged);
+		let res = await login(userLogin, value, cantineId);
 		switch (res._t) {
 			case 'success':
 				$username = res.data.username;

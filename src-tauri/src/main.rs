@@ -3,7 +3,7 @@
 
 use indexmap::IndexMap;
 use strava_client::data_struct::{
-    Date, DishDBEntry, DishInfo, OrdersCancelingSettings, RequestError, SettingsData, User, UserInfo
+    Date, DishDBEntry, DishInfo, OrdersCancelingSettings, RequestError, RequestResult, SettingsData, User, UserInfo
 };
 use strava_client::strava_client::StravaClient;
 use tokio::sync::Mutex;
@@ -15,7 +15,7 @@ async fn login(
     username: String,
     password: String,
     cantine: String,
-) -> Result<UserInfo, String> {
+) -> RequestResult<UserInfo, String> {
     let u = User {
         username: &username,
         password: &password,

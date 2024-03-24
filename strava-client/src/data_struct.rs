@@ -225,23 +225,32 @@ pub enum SettingsData {
     Strategy(String),
 }
 #[derive(Deserialize, Serialize)]
-pub enum RequestError {
-    Error(Error),
+pub enum RequestResult<T, R> {
+    Succes(Succes<T>),
+    Error(Error<R>),
     Unauthorized(Unauthorized),
 }
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)] 
 pub struct Unauthorized {
     pub _t : String,
 }
 #[derive(Deserialize, Serialize)]
-pub struct Error {
-   pub message: String,
+pub struct Error<R> {
+    pub error: R,
     pub _t : String,
 }
-impl Error {
-    pub fn new(message: String) -> Error {
+
+#[derive(Deserialize, Serialize)]
+pub struct Succes<T> {
+    pub _t : String,
+    pub data: T,
+
+}
+
+impl<R> Error<R> {
+    pub fn new(error:R) -> Error<R> {
         Error {
-            message: message,
+            error : error,
             _t: "failure".to_string(),
         }
     }
@@ -252,4 +261,16 @@ impl Unauthorized {
             _t: "unauthorized".to_string(),
         }
     }
+}
+impl<T> Succes<T> {
+    pub fn new(data: T) -> Succes<T> {
+        Succes {
+            _t: "success".to_string(),
+            data: data,
+        }
+    }
+}
+pub struct SaveRequestFailiure {
+    pub error: String,
+    pub account: f64,
 }

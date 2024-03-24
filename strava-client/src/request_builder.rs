@@ -1,8 +1,8 @@
 use std::{collections::HashMap, time::SystemTime};
 
 use crate::data_struct::{
-    Date, DishDBEntry, DishInfo, Error, OrdersCancelingSettings, RequestError, SettingsData,
-    Unauthorized, User, UserInfo,
+    Date, DishDBEntry, DishInfo, Error, OrdersCancelingSettings, RequestResult, SettingsData,
+    Succes, Unauthorized, User, UserInfo,
 };
 use indexmap::IndexMap;
 use once_cell::sync::{Lazy, OnceCell};
@@ -249,7 +249,7 @@ impl RequestBuilder {
         cantine_id: &str,
         query: &str,
         list_to_query: &str,
-    ) -> Result<Vec<DishDBEntry>, RequestError> {
+    ) -> RequestResult<Vec<DishDBEntry>, String> {
         match self
             .do_get_request(&format!(
                 "{}/cantine_history?cantine_id={}&query={}&list={}",
@@ -261,33 +261,36 @@ impl RequestBuilder {
             .await
         {
             Ok(res) => match res.status().as_u16() {
-                200 => Ok(res
-                    .json::<HashMap<String, Vec<DishDBEntry>>>()
-                    .await
-                    .unwrap()
-                    .get("result")
-                    .unwrap()
-                    .clone()),
-                _ => Err(RequestError::Error(Error::new(
+                200 => {
+                    let data = res
+                        .json::<HashMap<String, Vec<DishDBEntry>>>()
+                        .await
+                        .unwrap();
+
+                    return RequestResult::<Vec<DishDBEntry>, String>::Succes(Succes::new(
+                        data.get("result").unwrap().clone(),
+                    ));
+                }
+                _ => RequestResult::<Vec<DishDBEntry>, String>::Error(Error::new(
                     res.json::<HashMap<String, String>>()
                         .await
                         .unwrap()
                         .get("message")
                         .unwrap()
                         .to_string(),
-                ))),
+                )),
             },
-            Err(_) => Err(RequestError::Error(Error::new(
+            Err(_) => RequestResult::<Vec<DishDBEntry>, String>::Error(Error::new(
                 "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
                     .to_string(),
-            ))),
+            )),
         }
     }
     pub async fn query_settings(
         &self,
         query: &str,
         list_to_query: &str,
-    ) -> Result<DishDBEntry, RequestError> {
+    ) -> RequestResult<Vec<DishDBEntry>, String> {
         match self
             .do_get_request(&format!(
                 "{}/settings_query?query={}&list={}",
@@ -298,56 +301,64 @@ impl RequestBuilder {
             .await
         {
             Ok(res) => match res.status().as_u16() {
-                200 => Ok(res
-                    .json::<HashMap<String, DishDBEntry>>()
-                    .await
-                    .unwrap()
-                    .get("result")
-                    .unwrap()
-                    .clone()),
-                401 => Err(RequestError::Unauthorized(Unauthorized::new())),
-                _ => Err(RequestError::Error(Error::new(
+                200 => {
+                    let data = res
+                        .json::<HashMap<String, Vec<DishDBEntry>>>()
+                        .await
+                        .unwrap()
+                       ;
+                    return RequestResult::<Vec<DishDBEntry>, String>::Succes(Succes::new(
+                        data .get("result")
+                        .unwrap().clone(),
+                    ));
+                }
+                401 => RequestResult::<Vec<DishDBEntry>, String>::Unauthorized(Unauthorized::new()),
+                _ => RequestResult::<Vec<DishDBEntry>, String>::Error(Error::new(
                     res.json::<HashMap<String, String>>()
                         .await
                         .unwrap()
                         .get("message")
                         .unwrap()
                         .to_string(),
-                ))),
+                )),
             },
-            Err(_) => Err(RequestError::Error(Error::new(
+            Err(_) => RequestResult::<Vec<DishDBEntry>, String>::Error(Error::new(
                 "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
                     .to_string(),
-            ))),
+            )),
         }
     }
-    pub async fn fetch_settings(&self) -> Result<OrdersCancelingSettings, RequestError> {
+    pub async fn fetch_settings(&self) -> RequestResult<OrdersCancelingSettings, String> {
         match self
             .do_post(&format!("{}/user_settings", *ENDPOINT), "".to_string())
             .await
         {
             Ok(res) => match res.status().as_u16() {
-                200 => Ok(res
-                    .json::<HashMap<String, OrdersCancelingSettings>>()
-                    .await
-                    .unwrap()
-                    .get("settings")
-                    .unwrap()
-                    .clone()),
-                401 => Err(RequestError::Unauthorized(Unauthorized::new())),
-                _ => Err(RequestError::Error(Error::new(
+                200 => {
+                    let data = res
+                        .json::<HashMap<String, OrdersCancelingSettings>>()
+                        .await
+                        .unwrap();
+                    return RequestResult::<OrdersCancelingSettings, String>::Succes(Succes::new(
+                        data.get("settings").unwrap().clone(),
+                    ));
+                }
+                401 => RequestResult::<OrdersCancelingSettings, String>::Unauthorized(
+                    Unauthorized::new(),
+                ),
+                _ => RequestResult::<OrdersCancelingSettings, String>::Error(Error::new(
                     res.json::<HashMap<String, String>>()
                         .await
                         .unwrap()
                         .get("message")
                         .unwrap()
                         .to_string(),
-                ))),
+                )),
             },
-            Err(_) => Err(RequestError::Error(Error::new(
+            Err(_) => RequestResult::<OrdersCancelingSettings, String>::Error(Error::new(
                 "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
                     .to_string(),
-            ))),
+            )),
         }
     }
     pub async fn update_settings(
@@ -355,7 +366,7 @@ impl RequestBuilder {
         settings_item: SettingsData,
         action: &str,
         list_to_update: &str,
-    ) -> Result<(), RequestError> {
+    ) -> RequestResult<String, String> {
         match self
             .do_post(
                 &format!(
@@ -369,21 +380,21 @@ impl RequestBuilder {
             .await
         {
             Ok(res) => match res.status().as_u16() {
-                200 => Ok(()),
-                401 => Err(RequestError::Unauthorized(Unauthorized::new())),
-                _ => Err(RequestError::Error(Error::new(
+                200 => RequestResult::<String, String>::Succes(Succes::new("succes".to_string())),
+                401 => RequestResult::<String, String>::Unauthorized(Unauthorized::new()),
+                _ => RequestResult::<String, String>::Error(Error::new(
                     res.json::<HashMap<String, String>>()
                         .await
                         .unwrap()
                         .get("message")
                         .unwrap()
                         .to_string(),
-                ))),
+                )),
             },
-            Err(_) => Err(RequestError::Error(Error::new(
+            Err(_) => RequestResult::<String, String>::Error(Error::new(
                 "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
                     .to_string(),
-            ))),
+            )),
         }
     }
 

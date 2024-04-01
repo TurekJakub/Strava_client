@@ -4,7 +4,7 @@
 	import Alert from '$lib/Alert.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import {getUserMenu} from '$lib/WebComunicationLayer';
+	import {getUserMenu} from '$lib/TauriComunicationLayer';
     
 	let error: string = '';
 	let menuData: MenuData = {}
@@ -15,6 +15,7 @@
 	   switch (data._t) {
 		   case 'success':
 			   menuData = data.data;
+			   console.log(menuData);
 			   days = Object.keys(menuData);
 			   break;
 		   case 'failure':

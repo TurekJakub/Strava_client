@@ -1,6 +1,6 @@
 <script lang="ts">
 	import {Dropdown, DropdownItem } from 'flowbite-svelte';
-	import { logout, saveOrder} from '$lib/WebComunicationLayer';
+	import { logout, saveOrder} from '$lib/TauriComunicationLayer';
 	import { goto } from '$app/navigation';
 	import {username} from '$lib/store';
 	import {account} from '$lib/store';

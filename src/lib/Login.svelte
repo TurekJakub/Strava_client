@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Error from '$lib/Error.svelte';
-	import {getUserMenu } from '$lib/WebComunicationLayer';
 	import { login} from '$lib/TauriComunicationLayer';
 	import { goto } from '$app/navigation';
 	import { cantine, username, account} from '$lib/store';
@@ -17,8 +16,11 @@
 		(document.getElementById('login_button') as HTMLElement).blur();
 		loading = true;
 		let res = await login(userLogin, value, cantineId);
+		console.log(res);
+		console.log(res._t);
 		switch (res._t) {
 			case 'success':
+				console.log(res.data);
 				$username = res.data.username;
 				$account = res.data.account.toString(10);
 				$cantine = cantineId.toString(10);

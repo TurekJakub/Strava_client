@@ -305,11 +305,9 @@ impl RequestBuilder {
                     let data = res
                         .json::<HashMap<String, Vec<DishDBEntry>>>()
                         .await
-                        .unwrap()
-                       ;
+                        .unwrap();
                     return RequestResult::<Vec<DishDBEntry>, String>::Succes(Succes::new(
-                        data .get("result")
-                        .unwrap().clone(),
+                        data.get("result").unwrap().clone(),
                     ));
                 }
                 401 => RequestResult::<Vec<DishDBEntry>, String>::Unauthorized(Unauthorized::new()),
@@ -330,7 +328,7 @@ impl RequestBuilder {
     }
     pub async fn fetch_settings(&self) -> RequestResult<OrdersCancelingSettings, String> {
         match self
-            .do_post(&format!("{}/user_settings", *ENDPOINT), "".to_string())
+            .do_get_request(&format!("{}/user_settings", *ENDPOINT))
             .await
         {
             Ok(res) => match res.status().as_u16() {
@@ -346,14 +344,24 @@ impl RequestBuilder {
                 401 => RequestResult::<OrdersCancelingSettings, String>::Unauthorized(
                     Unauthorized::new(),
                 ),
-                _ => RequestResult::<OrdersCancelingSettings, String>::Error(Error::new(
+                304 => RequestResult::<OrdersCancelingSettings, String>::Succes(Succes::new(
+                    OrdersCancelingSettings {
+                        blacklisted_allergens: vec![],
+                        blacklisted_dishes: vec![],
+                        whitelisted_dishes: vec![],
+                        strategy: "replace".to_string(),
+                    },
+                )),
+                _ =>{ 
+                    println!("{:?}", res);
+                    RequestResult::<OrdersCancelingSettings, String>::Error(Error::new(
                     res.json::<HashMap<String, String>>()
                         .await
                         .unwrap()
                         .get("message")
                         .unwrap()
                         .to_string(),
-                )),
+                ))},
             },
             Err(_) => RequestResult::<OrdersCancelingSettings, String>::Error(Error::new(
                 "Došlo k chybě serveru při načítání dat z databáze, zkuste to znovu později"
@@ -432,6 +440,7 @@ impl RequestBuilder {
             Err(e) => Err(e),
         }
     }
+   
 }
 pub fn parse_menu(menu_string: serde_json::Value) -> IndexMap<Date, IndexMap<String, DishInfo>> {
     let mut menu = IndexMap::new();

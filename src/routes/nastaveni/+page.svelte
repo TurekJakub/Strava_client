@@ -7,7 +7,7 @@
 		fetchSettings,
 		querySettings,
 		updateSettings
-	} from '$lib/WebComunicationLayer';
+	} from '$lib/TauriComunicationLayer';
 	import { goto } from '$app/navigation';
 	import Alert from '$lib/Alert.svelte';
 	import BlackListMenu from '$lib/BlackListMenu.svelte';

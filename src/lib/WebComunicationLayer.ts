@@ -39,13 +39,12 @@ const login = async (
 	username: string,
 	value: string,
 	cantine: number,
-	stayLogged: boolean
 ): Promise<Result<User, string>> => {
 	const user = {
 		jmeno: username,
 		heslo: value,
 		cislo: cantine,
-		zustatPrihlasen: stayLogged,
+		zustatPrihlasen: false,
 		lang: 'CZ'
 	};
 	return await sendRequest<LoginResponse, ErrorResponse, User, string>(

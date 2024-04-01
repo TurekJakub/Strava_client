@@ -1,4 +1,4 @@
-use crate::data_struct::{Config, Date, DishDBEntry, DishInfo, OrdersCancelingSettings, RequestResult, Error, SaveRequestFailiure, SettingsData, Succes, User, UserInfo};
+use crate::data_struct::{Config, Date, DishDBEntry, DishInfo, OrdersCancelingSettings, RequestResult, SaveRequestFailiure, SettingsData, User, UserInfo};
 use crate::request_builder::RequestBuilder;
 use crate::strava_scraper::Scraper;
 use indexmap::IndexMap;
@@ -166,17 +166,23 @@ impl StravaClient {
             .await
     }
 
-    pub async fn save_orders(&mut self) -> RequestResult<String, SaveRequestFailiure> {
+    pub async fn save_orders(&mut self) -> Result<String, SaveRequestFailiure> {
        match self.request_builder.do_save_orders_request().await  {
            Ok(_) => {
              self.save_menu_changes();
-             RequestResult::Succes(Succes::new("success".to_string()))
+             Ok("success".to_string())
            }
             Err(e) => {
                 self.menu_buffer.get_mut().unwrap().clear();
                *self.account_temp.get_mut().unwrap() = *self.account.get().unwrap();
-                RequestResult::Error(Error::new(SaveRequestFailiure{error:e, account:*self.account_temp.get().unwrap()}))
+                Err(SaveRequestFailiure{error:e, account:*self.account_temp.get().unwrap()})
             }
        }     
+    }
+    pub async fn logout(&self) -> Result<(), ()> {
+       match self.request_builder.do_db_logout_request().await {
+              Ok(_) => Ok(()),
+              Err(_) => Err(()),
+       }
     }
 }

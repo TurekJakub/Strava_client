@@ -416,8 +416,8 @@ async fn save_orders(state: Data<Mutex<AppState>>, session: Session) -> impl Res
         Err(e) => {
             return HttpResponse::InternalServerError().body(format!(
                 r#"{{"message":"{}", "account": "{}"}}"#,
-                e.0.replace("\r\n", " "),
-                e.1
+                e.error.replace("\r\n", " "),
+                e.account
             ));
         }
     }

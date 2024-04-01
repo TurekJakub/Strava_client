@@ -225,6 +225,7 @@ pub enum SettingsData {
     Strategy(String),
 }
 #[derive(Deserialize, Serialize)]
+#[serde(untagged)]
 pub enum RequestResult<T, R> {
     Succes(Succes<T>),
     Error(Error<R>),
@@ -270,6 +271,7 @@ impl<T> Succes<T> {
         }
     }
 }
+#[derive(Deserialize, Serialize)]
 pub struct SaveRequestFailiure {
     pub error: String,
     pub account: f64,
